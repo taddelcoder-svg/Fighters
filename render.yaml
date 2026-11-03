@@ -1,0 +1,9 @@
+# Render-Blueprint: Web Service mit kleinem Node-Server (keine Abhängigkeiten, kein Build).
+services:
+  - type: web
+    name: bravostars
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: node server.js
+    healthCheckPath: /healthz

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1c1430">
+  <title>Bravo Stars</title>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <main id="menue" hidden>
+    <div class="leiste">
+      <span id="gesamt" class="gesamt">🏆 0</span>
+      <button id="ton" class="ico" type="button" aria-label="Ton an/aus">🔊</button>
+    </div>
+    <header>
+      <h1>BRAVO<br><span>STARS</span></h1>
+      <p>Die Klasse aus Crazy Lineup prügelt sich – mit Stempeln, Kamelspucke und Natrium.</p>
+    </header>
+    <section class="wahl">
+      <h3>Kämpfer</h3>
+      <div id="kaempfer" class="kaempfer"></div>
+      <div id="info" class="info"></div>
+      <h3>Modus</h3>
+      <div id="modi" class="modi"></div>
+      <button id="los" class="knopf gelb gross-knopf" type="button">Kämpfen!</button>
+      <p class="hilfe">PC: WASD laufen · Maus zielen · Klick angreifen · Leertaste/Rechtsklick Super · Esc aufgeben<br>
+        Handy/Tablet: links ziehen = laufen · rechts ziehen = zielen &amp; loslassen = schießen (tippen zielt automatisch) · gelber Knopf = Super</p>
+    </section>
+  </main>
+  <div id="spiel" hidden></div>
+  <div id="ergebnis" class="ergebnis" hidden></div>
+
+  <script src="js/pixel.js?v=1"></script>
+  <script src="js/sprites.js?v=1"></script>
+  <script src="js/daten.js?v=1"></script>
+  <script src="js/spiel.js?v=1"></script>
+  <script src="js/menue.js?v=1"></script>
+  <!-- Rangliste der Spielesammlung: meldet Spielzeit, Pokale und Progress, Spielstand in der Cloud -->
+  <script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Bravo Stars" data-speicher="bravostars." data-speicher-ohne="bravostars.stumm" defer></script>
+</body>
+</html>
