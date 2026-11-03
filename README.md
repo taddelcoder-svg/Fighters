@@ -5,6 +5,14 @@ Arena-Kloppe von oben mit der Klasse aus [Crazy Lineup](https://github.com/tadde
 Reines HTML/CSS/JS ohne Build: `node server.js` starten und `http://localhost:10000` öffnen
 (oder `python3 -m http.server`). Auf Render läuft es als Web Service (siehe `render.yaml`).
 
+## Online
+
+Unter „Online mit Freunden“ erstellt einer einen Raum und gibt den 4-stelligen Code weiter, die anderen treten bei.
+Bis zu 6 Leute in den Team-Modi (abwechselnd Blau/Rot), bis zu 8 im Royale; freie Plätze übernehmen Bots.
+Der Host rechnet das Spiel und schickt 20-mal pro Sekunde den Stand, die Gäste schicken nur ihre Eingaben.
+`server.js` liefert dafür unter `/ws` einen kleinen WebSocket-Raumdienst ohne Abhängigkeiten.
+Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist die Runde vorbei.
+
 ## Modi
 
 | Modus | Regeln |
@@ -36,4 +44,6 @@ Reines HTML/CSS/JS ohne Build: `node server.js` starten und `http://localhost:10
 | `js/pixel.js`, `js/sprites.js` | Pixel-Helfer und Figuren aus Crazy Lineup |
 | `js/daten.js` | Kämpferwerte, Modi, Karten (als Textraster) |
 | `js/spiel.js` | Eine Runde: Bewegung, Kampf, Bots, Modusregeln, Zeichnen, Steuerung |
-| `js/menue.js` | Menü, Pokale (localStorage `bravostars.*`), Ergebnis |
+| `js/menue.js` | Menü, Online-Lobby, Pokale (localStorage `bravostars.*`), Ergebnis |
+| `js/netz.js` | WebSocket-Verbindung zum Raumdienst |
+| `server.js` | Dateien ausliefern + Online-Räume (`/ws`) |

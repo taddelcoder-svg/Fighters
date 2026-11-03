@@ -1,9 +1,12 @@
-// Kleiner statischer Webserver ohne Abhängigkeiten (für Render als Node-Web-Service).
+// Bravo Stars – kleiner Webserver ohne Abhängigkeiten (für Render als Node-Web-Service).
+// Liefert die Dateien aus und vermittelt unter /ws Online-Räume per WebSocket.
+// Der Host (wer den Raum erstellt) rechnet das Spiel, der Server reicht Eingaben und Spielstände nur weiter.
 // Start: node server.js — hört auf PORT (Render setzt die Variable, sonst 10000).
 'use strict';
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = __dirname;
 const PORT = process.env.PORT || 10000;
@@ -14,7 +17,7 @@ const TYPEN = {
 };
 const ERLAUBT = ['index.html', 'style.css', 'js', 'vendor'];
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok\n'); }
   let datei = path.normalize(path.join(ROOT, url === '/' ? 'index.html' : url));
@@ -23,9 +26,155 @@ http.createServer((req, res) => {
   fs.readFile(datei, (fehler, inhalt) => {
     if (fehler) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Nicht gefunden\n'); }
     const typ = TYPEN[path.extname(datei)] || 'application/octet-stream';
-    // Eigener Code (HTML/CSS/JS) immer frisch, sonst sieht man neue Spiele erst nach einer Stunde; vendor/ darf gecacht werden
     const fest = rel.startsWith('vendor' + path.sep);
     res.writeHead(200, { 'Content-Type': typ, 'Cache-Control': fest ? 'public, max-age=86400' : 'no-cache' });
     res.end(inhalt);
   });
-}).listen(PORT, '0.0.0.0', () => console.log('Bravo Stars läuft auf Port ' + PORT));
+});
+
+/* ---------------- WebSocket (RFC 6455, nur Text-Nachrichten) ---------------- */
+const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const MAX_NACHRICHT = 256 * 1024;
+
+function rahmen(opcode, nutzlast) {
+  const n = nutzlast.length;
+  let kopf;
+  if (n < 126) { kopf = Buffer.alloc(2); kopf[1] = n; }
+  else if (n < 65536) { kopf = Buffer.alloc(4); kopf[1] = 126; kopf.writeUInt16BE(n, 2); }
+  else { kopf = Buffer.alloc(10); kopf[1] = 127; kopf.writeBigUInt64BE(BigInt(n), 2); }
+  kopf[0] = 0x80 | opcode;
+  return Buffer.concat([kopf, nutzlast]);
+}
+
+server.on('upgrade', (req, sock) => {
+  const key = req.headers['sec-websocket-key'];
+  if (req.url.split('?')[0] !== '/ws' || !key) { sock.destroy(); return; }
+  const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
+  sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+  sock.setNoDelay(true);
+  const c = neuerClient(sock);
+  let puffer = Buffer.alloc(0), teile = [];
+  sock.on('data', (d) => {
+    puffer = Buffer.concat([puffer, d]);
+    while (puffer.length >= 2) {
+      const fin = puffer[0] & 0x80, op = puffer[0] & 0x0f, maskiert = puffer[1] & 0x80;
+      let len = puffer[1] & 0x7f, pos = 2;
+      if (len === 126) { if (puffer.length < 4) return; len = puffer.readUInt16BE(2); pos = 4; }
+      else if (len === 127) { if (puffer.length < 10) return; len = Number(puffer.readBigUInt64BE(2)); pos = 10; }
+      if (len > MAX_NACHRICHT) { sock.destroy(); return; }
+      const maske = maskiert ? 4 : 0;
+      if (puffer.length < pos + maske + len) return;
+      const m = maskiert ? puffer.slice(pos, pos + 4) : null;
+      const daten = Buffer.from(puffer.slice(pos + maske, pos + maske + len));
+      if (m) for (let i = 0; i < daten.length; i++) daten[i] ^= m[i & 3];
+      puffer = puffer.slice(pos + maske + len);
+      if (op === 8) { try { sock.write(rahmen(8, Buffer.alloc(0))); } catch (e) {} sock.end(); return; }
+      if (op === 9) { try { sock.write(rahmen(10, daten)); } catch (e) {} continue; }
+      if (op === 10) { c.lebt = true; continue; }
+      if (op === 1 || op === 0) {
+        teile.push(daten);
+        if (fin) { const text = Buffer.concat(teile).toString('utf8'); teile = []; let o; try { o = JSON.parse(text); } catch (e) { continue; } nachricht(c, o); }
+      }
+    }
+  });
+  sock.on('close', () => weg(c));
+  sock.on('error', () => weg(c));
+});
+
+/* ---------------- Räume ---------------- */
+let naechsteId = 1;
+const clients = new Set();
+const raeume = new Map();
+const MAX_SPIELER = 8;
+
+function neuerClient(sock) {
+  const c = { id: naechsteId++, sock, name: 'Spieler', kaempfer: 'matteo', raum: null, lebt: true, offen: true };
+  clients.add(c);
+  return c;
+}
+function senden(c, o) {
+  if (!c.offen) return;
+  try { c.sock.write(rahmen(1, Buffer.from(JSON.stringify(o)))); } catch (e) {}
+}
+function sauber(t, n) { return String(t || '').replace(/[<>]/g, '').trim().slice(0, n) || 'Spieler'; }
+function code() {
+  const z = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  for (;;) { let s = ''; for (let i = 0; i < 4; i++) s += z[Math.floor(Math.random() * z.length)]; if (!raeume.has(s)) return s; }
+}
+function lobby(r) {
+  const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft,
+    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer })) };
+  r.spieler.forEach((c) => senden(c, o));
+}
+function verlassen(c) {
+  const r = c.raum; if (!r) return;
+  c.raum = null;
+  r.spieler = r.spieler.filter((x) => x !== c);
+  if (r.host === c) {
+    r.spieler.forEach((x) => { x.raum = null; senden(x, { t: 'host_weg' }); });
+    raeume.delete(r.code);
+    return;
+  }
+  if (r.laeuft) senden(r.host, { t: 'weg', id: c.id });
+  lobby(r);
+}
+function weg(c) {
+  if (!c.offen) return;
+  c.offen = false; clients.delete(c);
+  verlassen(c);
+  try { c.sock.destroy(); } catch (e) {}
+}
+
+function nachricht(c, o) {
+  const r = c.raum;
+  switch (o.t) {
+    case 'erstellen': {
+      verlassen(c);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20);
+      const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false };
+      raeume.set(neu.code, neu); c.raum = neu;
+      senden(c, { t: 'du', id: c.id });
+      lobby(neu);
+      break;
+    }
+    case 'beitreten': {
+      const ziel = raeume.get(String(o.code || '').toUpperCase().trim());
+      if (!ziel) return senden(c, { t: 'fehler', text: 'Diesen Raum gibt es nicht.' });
+      if (ziel.laeuft) return senden(c, { t: 'fehler', text: 'Dort läuft gerade eine Runde – gleich nochmal versuchen.' });
+      if (ziel.spieler.length >= MAX_SPIELER) return senden(c, { t: 'fehler', text: 'Der Raum ist voll.' });
+      verlassen(c);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20);
+      ziel.spieler.push(c); c.raum = ziel;
+      senden(c, { t: 'du', id: c.id });
+      lobby(ziel);
+      break;
+    }
+    case 'verlassen': verlassen(c); break;
+    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); lobby(r); } break;
+    case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
+    case 'start': {
+      if (!r || r.host !== c || r.laeuft) return;
+      if (r.modus !== 'royale' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
+      r.laeuft = true;
+      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, team: i % 2 }));
+      r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id }));
+      lobby(r);
+      break;
+    }
+    case 'ende': if (r && r.host === c) { r.laeuft = false; lobby(r); } break;
+    // Weiterreichen: Gast -> Host (Eingaben) und Host -> alle Gäste (Spielstand)
+    case 'an_host': if (r && r.laeuft && r.host !== c) senden(r.host, { t: 'von', id: c.id, d: o.d }); break;
+    case 'an_alle': if (r && r.host === c) r.spieler.forEach((x) => { if (x !== c) senden(x, { t: 'daten', d: o.d }); }); break;
+  }
+}
+
+// Alle 25 Sekunden anpingen, damit Render die Verbindung nicht kappt; Tote aufräumen
+setInterval(() => {
+  clients.forEach((c) => {
+    if (!c.lebt) return weg(c);
+    c.lebt = false;
+    try { c.sock.write(rahmen(9, Buffer.alloc(0))); } catch (e) { weg(c); }
+  });
+}, 25000);
+
+server.listen(PORT, '0.0.0.0', () => console.log('Bravo Stars läuft auf Port ' + PORT));
