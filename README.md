@@ -20,10 +20,19 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 | Sternenregen | 3 gegen 3, Sterne aus der Mitte sammeln; 10 Sterne 15 Sekunden halten gewinnt |
 | Pausenball | 3 gegen 3, Ball ins gegnerische Tor schießen; zwei Tore gewinnen |
 | Hügelkönig | 3 gegen 3, die Zone in der Mitte halten, bis die Leiste 100 % hat |
+| Tresorknacker | 3 gegen 3, den gegnerischen Tresor knacken |
+| Kopfgeld | 3 gegen 3, K.o.s bringen so viele Sterne, wie Kopfgeld auf dem Gegner liegt |
+| Duo-Royale | Vier 2er-Teams, das letzte Duo gewinnt |
+| Trainingsplatz | Übungspuppen, keine Pokale |
 | Pausenhof-Royale | Jeder gegen jeden (8), Kisten knacken für Energie, Kreidestaub zieht sich zusammen |
 | Klassenkeile | 3 gegen 3, das erste Team mit 10 K.o.s gewinnt |
 
 ## Fortschritt
+
+Das Menü hat Tabs: **Spielen** (Modus, Karte des Tages, Rangspiel, Online), **Kämpfer** (Stufe, Skins, Ausrüstung),
+**Shop** (Truhen, Tagesangebote, Gratis-Geschenk, Emotes), **Aufgaben** (3 Tagesaufgaben) und **Pokal-Weg** (Belohnungen bei Pokal-Stationen).
+Jeder Modus hat mehrere Karten, jeden Tag ist eine andere dran. Im Rangspiel (Team-Modi) geht es von Bronze bis Legende.
+Ab Stufe 7 trägt ein Kämpfer zwei Ausrüstungsteile, ab Stufe 9 hat er eine Ultra (Taste R): 5 Sekunden schneller, stärker, zäher.
 
 Nach jeder Runde gibt es Münzen (mehr für Siege, K.o.s, den ersten Sieg am Tag und alle 100 Pokale).
 Damit steigt jeder Kämpfer bis Stufe 9 (+7 % Leben und Schaden pro Stufe).
@@ -52,6 +61,7 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 |---|---|
 | `js/pixel.js`, `js/sprites.js` | Pixel-Helfer und Figuren aus Crazy Lineup |
 | `js/daten.js` | Kämpferwerte, Modi, Karten (als Textraster) |
+| `js/extras.js` | Skins, Ausrüstung, Emotes, Ränge, Truhen, Pokal-Weg, Tagesaufgaben, Karten-Rotation |
 | `js/spiel.js` | Eine Runde: Bewegung, Kampf, Bots, Modusregeln, Zeichnen, Steuerung |
 | `js/menue.js` | Menü, Online-Lobby, Pokale (localStorage `bravostars.*`), Ergebnis |
 | `js/netz.js` | WebSocket-Verbindung zum Raumdienst |

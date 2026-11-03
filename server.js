@@ -97,6 +97,7 @@ function senden(c, o) {
   try { c.sock.write(rahmen(1, Buffer.from(JSON.stringify(o)))); } catch (e) {}
 }
 function stufeVon(v) { v = Math.round(+v || 1); return v < 1 ? 1 : v > 9 ? 9 : v; }
+function teileVon(l) { return Array.isArray(l) ? l.slice(0, 2).map((x) => String(x).replace(/[^a-z]/g, '').slice(0, 20)) : []; }
 function sauber(t, n) { return String(t || '').replace(/[<>]/g, '').trim().slice(0, n) || 'Spieler'; }
 function code() {
   const z = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -104,7 +105,7 @@ function code() {
 }
 function lobby(r) {
   const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft,
-    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe })) };
+    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe, skin: c.skin })) };
   r.spieler.forEach((c) => senden(c, o));
 }
 function verlassen(c) {
@@ -131,7 +132,7 @@ function nachricht(c, o) {
   switch (o.t) {
     case 'erstellen': {
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
       const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false };
       raeume.set(neu.code, neu); c.raum = neu;
       senden(c, { t: 'du', id: c.id });
@@ -144,20 +145,21 @@ function nachricht(c, o) {
       if (ziel.laeuft) return senden(c, { t: 'fehler', text: 'Dort läuft gerade eine Runde – gleich nochmal versuchen.' });
       if (ziel.spieler.length >= MAX_SPIELER) return senden(c, { t: 'fehler', text: 'Der Raum ist voll.' });
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
       ziel.spieler.push(c); c.raum = ziel;
       senden(c, { t: 'du', id: c.id });
       lobby(ziel);
       break;
     }
     case 'verlassen': verlassen(c); break;
-    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); lobby(r); } break;
+    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
     case 'start': {
       if (!r || r.host !== c || r.laeuft) return;
-      if (r.modus !== 'royale' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
+      if (r.modus === 'training') return senden(c, { t: 'fehler', text: 'Der Trainingsplatz geht nur allein.' });
+      if (r.modus !== 'royale' && r.modus !== 'duo' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
       r.laeuft = true;
-      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, team: i % 2 }));
+      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung, team: i % 2 }));
       r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id }));
       lobby(r);
       break;

@@ -150,7 +150,7 @@
 
   // Stufen: jede Stufe +7 % Leben und Schaden; Kosten in Münzen für den Schritt auf die nächste Stufe
   var STUFE_KOSTEN = [0, 20, 35, 75, 140, 290, 480, 800, 1250];
-  var MAX_STUFE = 9, TRICK_AB = 3, TALENT_AB = 5;
+  var MAX_STUFE = 9, TRICK_AB = 3, TALENT_AB = 5, AUSRUESTUNG_AB = 7, ULTRA_AB = 9;
 
   var MODI = [
     { id: 'sterne', name: 'Sternenregen', icon: '★', team: true,
@@ -162,7 +162,15 @@
     { id: 'ball', name: 'Pausenball', icon: '⚽', team: true,
       text: '3 gegen 3: Schnapp dir den Ball und schieß ihn ins gegnerische Tor (oben). Mit Ball schießt du statt anzugreifen. Zwei Tore gewinnen.' },
     { id: 'huegel', name: 'Hügelkönig', icon: '♛', team: true,
-      text: '3 gegen 3: Haltet die Zone in der Mitte. Steht nur euer Team drin, füllt sich eure Leiste – wer zuerst 100 % hat, gewinnt.' }
+      text: '3 gegen 3: Haltet die Zone in der Mitte. Steht nur euer Team drin, füllt sich eure Leiste – wer zuerst 100 % hat, gewinnt.' },
+    { id: 'tresor', name: 'Tresorknacker', icon: '🔒', team: true,
+      text: '3 gegen 3: Jedes Team hat einen Tresor. Knackt den gegnerischen, bevor sie euren knacken. Nach Ablauf gewinnt, wessen Tresor mehr Leben hat.' },
+    { id: 'kopfgeld', name: 'Kopfgeld', icon: '💰', team: true,
+      text: '3 gegen 3: Jeder K.o. bringt so viele Sterne, wie Kopfgeld auf dem Gegner liegt. Wer viele K.o.s schafft, wird selbst wertvoller.' },
+    { id: 'duo', name: 'Duo-Royale', icon: '👥', team: false,
+      text: 'Vier 2er-Teams auf dem Pausenhof: du und ein Partner gegen den Rest. Das letzte Duo, das noch steht, gewinnt.' },
+    { id: 'training', name: 'Trainingsplatz', icon: '🎯', team: true, training: true,
+      text: 'Ohne Gegner, ohne Pokale: Probier Angriff, Super, Trick und Ultra an Übungspuppen aus.' }
   ];
 
   // Legende: . Boden  # Wand (Tische, Regale)  b Hecke (versteckt)  w Wasser (Schüsse fliegen drüber)  K Kiste
@@ -251,6 +259,140 @@
     mitte: '.##...............##.'
   };
 
+  KARTEN.pausenhalle = {
+    name: 'Pausenhalle',
+    haelfte: [
+      '..b.....bbbbb.....b..',
+      '.....................',
+      '###...##.....##...###',
+      '.....................',
+      '.....b....w....b.....',
+      '....bbb...w...bbb....',
+      '.....b.........b.....',
+      '##.......###.......##',
+      '.....................',
+      '...ww...b...b...ww...',
+      '...ww..bbb.bbb..ww...',
+      '.....................',
+      '..##.............##..',
+      '..##.....#.#.....##..',
+      '.....................'
+    ],
+    mitte: 'bb.................bb'
+  };
+  KARTEN.flur = {
+    name: 'Schulflur',
+    haelfte: [
+      '.........bbb.........',
+      '.....................',
+      '.###.###.....###.###.',
+      '.....................',
+      'bb.......#.#.......bb',
+      'bb..ww...#.#...ww..bb',
+      '....ww.........ww....',
+      '.....................',
+      '..####...bbb...####..',
+      '.........bbb.........',
+      '.....................',
+      '.b...##.......##...b.',
+      'bbb..##.......##..bbb'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.schulgarten = {
+    name: 'Schulgarten',
+    haelfte: [
+      '#######.......#######',
+      '.....................',
+      '.bb..ww.......ww..bb.',
+      '.bb..ww.......ww..bb.',
+      '.....................',
+      '..#.....bbbbb.....#..',
+      '..#.....bbbbb.....#..',
+      '.....................',
+      'bbb....##...##....bbb',
+      '.....................',
+      '....b...........b....',
+      '...bbb...www...bbb...',
+      '.........www.........'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.dach = {
+    name: 'Schuldach',
+    haelfte: [
+      '.....................',
+      '..##.............##..',
+      '..##....bbbbb....##..',
+      '.....................',
+      'ww.......###.......ww',
+      'ww.................ww',
+      '.....b.........b.....',
+      '....bbb..#.#..bbb....',
+      '.....b.........b.....',
+      '..##.............##..',
+      '..##...b.....b...##..',
+      '.......b.....b.......',
+      '.....................',
+      '.....................'
+    ],
+    mitte: 'bbb...............bbb'
+  };
+  KARTEN.keller = {
+    name: 'Heizungskeller',
+    haelfte: [
+      '..bb.............bb..',
+      '..bb.............bb..',
+      '.....##.......##.....',
+      '.....##.......##.....',
+      '.....................',
+      '##..bb...#.#...bb..##',
+      '....bb.........bb....',
+      '.........bbb.........',
+      '..###....bbb....###..',
+      '.....................',
+      'bb...ww.......ww...bb',
+      'bb...ww...#...ww...bb',
+      '.....................'
+    ],
+    mitte: '....##.........##....'
+  };
+  KARTEN.bibliothek = {
+    name: 'Bibliothek',
+    haelfte: [
+      '.b.................b.',
+      '.b...............b.b.',
+      '.....#.........#.....',
+      '.....#.........#.....',
+      '.....................',
+      '###.###..bbb..###.###',
+      '.........bbb.........',
+      '.....................',
+      '..bb...#######...bb..',
+      '..bb.............bb..',
+      '.....................',
+      '....##...b.b...##....',
+      '.........b.b.........'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.training = {
+    name: 'Trainingsplatz',
+    haelfte: [
+      '.....................',
+      '.....................',
+      '.....................',
+      '..##.............##..',
+      '.....................',
+      '.....bbb.....bbb.....',
+      '.....................',
+      '.........###.........',
+      '.....................',
+      '.....................'
+    ],
+    mitte: '.....................'
+  };
+
   // Royale-Karte: Viertel oben links, wird in beide Richtungen gespiegelt (36 x 36)
   var ROYALE = {
     name: 'Pausenhof',
@@ -283,20 +425,54 @@
     var unten = oben.slice().reverse().map(function (z) { return z.split('').reverse().join(''); });
     return { name: k.name, zeilen: oben.concat([zeile(k.mitte, b)], unten) };
   }
-  function royaleKarte() {
-    var v = ROYALE.viertel.map(function (z) { return zeile(z, 18); });
+  var SPORTFEST = {
+    name: 'Sportfest',
+    viertel: [
+      '..........bb......',
+      '.bbb..K...bb...K..',
+      '.bbb..............',
+      '.......###...ww...',
+      '..K....#.....ww...',
+      '.......#..........',
+      'ww.........bbb..K.',
+      'ww..K......bbb....',
+      '...........bbb....',
+      '..bbb.............',
+      '..bbb...##....##..',
+      '........##....##..',
+      '..K...........K...',
+      '.....ww...bb......',
+      '.....ww...bb...bbb',
+      '.K.............bbb',
+      '.......K..........',
+      '..##..........K...'
+    ]
+  };
+  function royaleKarte(vorlage) {
+    var ROYALE_V = vorlage || ROYALE;
+    var v = ROYALE_V.viertel.map(function (z) { return zeile(z, 18); });
     var oben = v.map(function (z) { return z + z.split('').reverse().join(''); });
-    return { name: ROYALE.name, zeilen: oben.concat(oben.slice().reverse()) };
+    return { name: ROYALE_V.name, zeilen: oben.concat(oben.slice().reverse()) };
   }
 
   window.BS = window.BS || {};
   BS.KAEMPFER = KAEMPFER;
   BS.MODI = MODI;
   BS.STUFE_KOSTEN = STUFE_KOSTEN; BS.MAX_STUFE = MAX_STUFE; BS.TRICK_AB = TRICK_AB; BS.TALENT_AB = TALENT_AB;
-  BS.karte = function (modus) {
-    if (modus === 'royale') return royaleKarte();
-    var k = { kloppe: KARTEN.turnhalle, ball: KARTEN.sportplatz, huegel: KARTEN.aula }[modus] || KARTEN.schulhof;
-    return teamKarte(k);
+  // Karten je Modus; welche heute dran ist, entscheidet BS.karteHeute (extras.js)
+  BS.KARTEN_FUER = {
+    sterne: ['schulhof', 'pausenhalle', 'dach'], kloppe: ['turnhalle', 'flur', 'pausenhalle'], kopfgeld: ['flur', 'turnhalle', 'dach'],
+    ball: ['sportplatz', 'schulgarten'], huegel: ['aula', 'dach', 'pausenhalle'], tresor: ['keller', 'bibliothek'],
+    royale: ['pausenhof', 'sportfest'], duo: ['sportfest', 'pausenhof'], training: ['training']
   };
+  BS.KARTEN_NAMEN = { pausenhof: ROYALE.name, sportfest: SPORTFEST.name };
+  for (var kn in KARTEN) BS.KARTEN_NAMEN[kn] = KARTEN[kn].name;
+  BS.karte = function (modus, name) {
+    name = name || (BS.KARTEN_FUER[modus] || ['schulhof'])[0];
+    if (name === 'pausenhof') return royaleKarte(ROYALE);
+    if (name === 'sportfest') return royaleKarte(SPORTFEST);
+    return teamKarte(KARTEN[name] || KARTEN.schulhof);
+  };
+  BS.AUSRUESTUNG_AB = AUSRUESTUNG_AB; BS.ULTRA_AB = ULTRA_AB;
   BS.kaempfer = function (id) { for (var i = 0; i < KAEMPFER.length; i++) if (KAEMPFER[i].id === id) return KAEMPFER[i]; return KAEMPFER[0]; };
 })();

@@ -23,7 +23,8 @@
     var pauseKnopf = document.createElement('button'); pauseKnopf.className = 'pause'; pauseKnopf.type = 'button';
     pauseKnopf.textContent = '✕'; pauseKnopf.setAttribute('aria-label', 'Runde aufgeben'); root.appendChild(pauseKnopf);
 
-    var modus = opt.modus, team = modus !== 'royale';
+    var modus = opt.modus, duo = modus === 'duo', royaleArt = modus === 'royale' || duo, team = !royaleArt;
+    var training = modus === 'training', rangspiel = !!opt.rang;
     // Online: der Host rechnet alles und schickt 20x pro Sekunde den Stand, Gäste schicken nur Eingaben
     var netz = opt.netz || null, host = !!(netz && netz.rolle === 'host'), gast = !!(netz && netz.rolle === 'gast');
     var ev = [];   // Ereignisse (Effekte, Zahlen, Töne, kaputte Wände) seit dem letzten Stand
@@ -33,7 +34,8 @@
     };
     function fx(e) { effekte.push(e); if (host) ev.push(['f', e]); }
     function zahl(z) { zahlen.push(z); if (host) ev.push(['z', z]); }
-    var karte = BS.karte(modus);
+    var kartenName = opt.karte || (opt.netz && opt.netz.init && opt.netz.init.karte) || BS.karteHeute(modus);
+    var karte = BS.karte(modus, kartenName);
     var B = karte.zeilen[0].length, H = karte.zeilen.length;
     var W = B * T, HH = H * T;
     // Felder: 0 Boden, 1 Wand, 2 Hecke, 3 Wasser, 4 Kiste
@@ -95,15 +97,23 @@
 
     // ---------- Kämpfer ----------
     var kaempfer = [];
-    function neuerKaempfer(def, tm, istSpieler, stufe) {
+    function neuerKaempfer(def, tm, istSpieler, stufe, mehr) {
       stufe = klemm(Math.round(stufe || 1), 1, BS.MAX_STUFE);
-      var tal = stufe >= BS.TALENT_AB ? (def.talent || {}) : {}, f = 1 + (stufe - 1) * 0.07;
+      mehr = mehr || {};
+      var tal = {}, f = 1 + (stufe - 1) * 0.07;
+      // Talent und Ausrüstung zu einem Satz Faktoren zusammenfassen
+      var quellen = [stufe >= BS.TALENT_AB ? (def.talent || {}) : {}];
+      if (stufe >= BS.AUSRUESTUNG_AB) (mehr.ausruestung || []).slice(0, 2).forEach(function (id) { var t = BS.teil(id); if (t) quellen.push(t.mod); });
+      quellen.forEach(function (q) { for (var key in q) tal[key] = key === 'biss' || key === 'regenPause' ? q[key] : (tal[key] || 1) * q[key]; });
       var hp0 = Math.round(def.hp * f * (tal.hp || 1));
       var k = {
         def: def, team: tm, spieler: istSpieler, x: 0, y: 0, r: def.radius || 16,
         stufe: stufe, dmgF: f * (tal.schaden || 1), tempoF: tal.tempo || 1, ladeF: tal.laden || 1, superF: tal.superF || 1,
         regenPause: REGEN_PAUSE * (tal.regenPause || 1), regenTempo: tal.regenTempo || 1, biss: tal.biss || 0,
         tricks: stufe >= BS.TRICK_AB ? 3 : 0, trickT: 0, verliebt: 0, verliebtZu: null,
+        skin: BS.skin(def.id, mehr.skin), ausruestung: (mehr.ausruestung || []).slice(0, 2),
+        ultraOk: stufe >= BS.ULTRA_AB, ultraLadung: 0, ultra: 0, emote: null, kopfgeld: 2,
+        statSchaden: 0, statSupers: 0, statTore: 0,
         hp: hp0, maxHp: hp0, munition: 3, ladeT: 0, superLadung: 0, superBereit: false,
         blick: tm === 0 ? -Math.PI / 2 : Math.PI / 2, lauf: 0, bewegt: false,
         betaeubt: 0, gebremst: 0, schild: 0, unsichtbar: 0, gross: 0, turbo: 0, doppelt: false,
@@ -115,14 +125,22 @@
       return k;
     }
 
-    function botStufe(s) { return klemm(Math.round((s || 1) + rnd(-1.2, 0.8)), 1, BS.MAX_STUFE); }
+    function botStufe(s) { return klemm(Math.round((s || 1) + rnd(-1.2, 0.8) + (rangspiel ? 1 : 0)), 1, BS.MAX_STUFE); }
+    // Bots bekommen manchmal einen Skin und ab Stufe 7 zufällige Ausrüstung
+    function botMehr(def, st) {
+      var l = BS.SKINS[def.id] || [], m = {};
+      if (l.length && Math.random() < 0.35) m.skin = l[Math.floor(Math.random() * l.length)].id;
+      if (st >= BS.AUSRUESTUNG_AB) m.ausruestung = mischen(BS.AUSRUESTUNG.map(function (t) { return t.id; })).slice(0, 2);
+      return m;
+    }
+    function bot(def, tm, s) { var st = botStufe(s); return neuerKaempfer(def, tm, false, st, botMehr(def, st)); }
     function neueKi() { return { ziel: null, denk: rnd(0, 0.3), schussT: rnd(0.4, 0.9), seite: Math.random() < 0.5 ? -1 : 1, seiteT: 0 }; }
 
     var spieler, gegnerPool = mischen(BS.KAEMPFER.filter(function (d) { return d.id !== opt.kaempfer; }));
     var spawns = [];
     if (gast) {
       netz.init.k.forEach(function (z) {
-        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich, z[4]);
+        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich, z[4], { skin: z[5], ausruestung: z[6] });
         k.ki = null; k.name = z[2]; k.mensch = z[3];
         if (z[3] === netz.ich) spieler = k;
       });
@@ -132,7 +150,7 @@
       var bi = 0, schnitt = 0;
       netz.spieler.forEach(function (m) { schnitt += (m.stufe || 1) / netz.spieler.length; });
       var mensch = function (m, tm) {
-        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich, m.stufe);
+        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich, m.stufe, { skin: m.skin, ausruestung: m.ausruestung });
         k.name = m.name; k.mensch = m.id;
         if (m.id === netz.ich) spieler = k; else { k.ki = null; k.eingabe = { mx: 0, my: 0, b: 0 }; }
       };
@@ -140,20 +158,26 @@
         [0, 1].forEach(function (tm) {
           var drin = netz.spieler.filter(function (m) { return m.team === tm; });
           drin.forEach(function (m) { mensch(m, tm); });
-          for (var i = drin.length; i < 3; i++) neuerKaempfer(botPool[bi++], tm, false, botStufe(schnitt));
+          for (var i = drin.length; i < 3; i++) bot(botPool[bi++], tm, schnitt);
         });
       } else {
-        netz.spieler.forEach(function (m, i) { mensch(m, i); });
-        for (var i3 = netz.spieler.length; i3 < 8; i3++) neuerKaempfer(botPool[bi++], i3, false, botStufe(schnitt));
+        netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
+        for (var i3 = netz.spieler.length; i3 < 8; i3++) bot(botPool[bi++], duo ? Math.floor(i3 / 2) : i3, schnitt);
+      }
+    } else if (training) {
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
+      for (var gt = 0; gt < 3; gt++) {
+        var puppe = neuerKaempfer(gegnerPool[gt], 1, false, 1);
+        puppe.ki = null; puppe.eingabe = { mx: 0, my: 0, b: Math.PI / 2 }; puppe.hp = puppe.maxHp = 600; puppe.name = 'Puppe';
       }
     } else if (team) {
-      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe);
-      neuerKaempfer(gegnerPool[0], 0, false, botStufe(opt.stufe));
-      neuerKaempfer(gegnerPool[1], 0, false, botStufe(opt.stufe));
-      for (var g = 2; g < 5; g++) neuerKaempfer(gegnerPool[g], 1, false, botStufe(opt.stufe));
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
+      bot(gegnerPool[0], 0, opt.stufe);
+      bot(gegnerPool[1], 0, opt.stufe);
+      for (var g = 2; g < 5; g++) bot(gegnerPool[g], 1, opt.stufe);
     } else {
-      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe);
-      for (var g2 = 0; g2 < 7; g2++) neuerKaempfer(gegnerPool[g2 % gegnerPool.length], g2 + 1, false, botStufe(opt.stufe));
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
+      for (var g2 = 0; g2 < 7; g2++) bot(gegnerPool[g2 % gegnerPool.length], duo ? Math.floor((g2 + 1) / 2) : g2 + 1, opt.stufe);
     }
     function freiesFeld(tx, ty) {
       for (var rad = 0; rad < 6; rad++) for (var dy = -rad; dy <= rad; dy++) for (var dx = -rad; dx <= rad; dx++) {
@@ -168,10 +192,14 @@
         return freiesFeld(k.team === 0 ? B - 1 - cx : cx, k.team === 0 ? H - 2 : 1);
       }
       var n = kaempfer.indexOf(k), w = n / kaempfer.length * Math.PI * 2 + Math.PI / 2;
+      if (duo) {   // Duos starten nebeneinander
+        var paar = kaempfer.filter(function (o) { return o.team === k.team; }), seite = paar.indexOf(k) ? 1 : -1;
+        w = k.team / 4 * Math.PI * 2 + Math.PI / 2 + seite * 0.12;
+      }
       return freiesFeld(Math.round(B / 2 - 0.5 + Math.cos(w) * (B / 2 - 3)), Math.round(H / 2 - 0.5 + Math.sin(w) * (H / 2 - 3)));
     }
     kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); });
-    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe]; }) } });
+    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung]; }) } });
 
     // ---------- Wege für die Bots (Breitensuche auf dem Raster) ----------
     var wegeNeu = false, wegCache = {};
@@ -273,15 +301,37 @@
       if (von && von.doppelt) { menge *= 2; von.doppelt = false; }
       if (von && von.energie) menge *= 1 + von.energie * 0.1;
       if (von && von.dmgF) menge *= von.dmgF;
+      if (von && von.ultra > 0) menge *= 1.2;
+      if (ziel.ultra > 0) menge *= 0.75;
       if (von && von.gross > 0) menge *= 1.6;
       menge = Math.round(menge);
       ziel.hp -= menge; ziel.zuletztGetroffen = zeit;
+      if (von) von.statSchaden += menge;
+      if (von && von.team !== ziel.team) ultraLaden(von, menge);
       if (ziel.unsichtbar > 0) ziel.unsichtbar = 0;
       zahl({ x: ziel.x + rnd(-8, 8), y: ziel.y - 40, t: 0, text: String(menge), farbe: ziel === spieler ? '#ff6a6a' : '#fff' });
       if (von && !ohneLadung && von.team !== ziel.team) { von.superLadung = Math.min(von.def.superKosten, von.superLadung + menge / (von.dmgF || 1) * (von.superF || 1)); }
       if (ziel === spieler) wackeln = Math.min(10, wackeln + 4);
       if (ziel.hp <= 0) sterben(ziel, von);
       return menge;
+    }
+    function ultraLaden(k, menge) {
+      if (!k.ultraOk || k.ultra > 0 || k.superLadung < k.def.superKosten) return;
+      k.ultraLadung = Math.min(k.def.superKosten * 1.5, k.ultraLadung + menge / (k.dmgF || 1));
+    }
+    function ultraBereit(k) { return k.ultraOk && !k.tot && k.ultra <= 0 && k.ultraLadung >= k.def.superKosten * 1.5; }
+    function ultraZuenden(k) {
+      if (!ultraBereit(k) || k.betaeubt > 0) return false;
+      k.ultraLadung = 0; k.ultra = 5; k.zuletztAktiv = zeit;
+      fx({ art: 'ring', x: k.x, y: k.y, r: 2 * T, t: 0, d: 0.5, farbe: '#c46aff' });
+      sfx.tone(330, 0.15, 'sawtooth', 0.07, 990); sfx.tone(990, 0.25, 'square', 0.05, null, 0.12);
+      if (k === spieler || k.mensch) zahl({ x: k.x, y: k.y - 70, t: -0.3, text: 'ULTRA!', farbe: '#d89aff' });
+      return true;
+    }
+    function emoteZeigen(k, id) {
+      if (!BS.emote(id) || k.tot || (k.emote && k.emote.t > 0.5)) return;
+      k.emote = { id: id, t: 2.2 };
+      if (host) ev.push(['m', kaempfer.indexOf(k), id]);
     }
     function heilen(k, menge) { if (k.tot) return; k.hp = Math.min(k.maxHp, k.hp + menge); zahl({ x: k.x, y: k.y - 44, t: 0, text: '+' + Math.round(menge), farbe: '#6ef08a' }); }
 
@@ -295,10 +345,23 @@
         k.sterne = 0;
       }
       if (modus === 'kloppe' && von && von.team !== k.team) teamKos[von.team]++;
-      if (modus === 'royale') {
+      if (modus === 'kopfgeld' && von && von.team !== k.team) {
+        teamKopf[von.team] += k.kopfgeld;
+        zahl({ x: k.x, y: k.y - 60, t: -0.2, text: '+' + k.kopfgeld + ' ★', farbe: '#ffd23f' });
+        von.kopfgeld = Math.min(7, von.kopfgeld + 1); k.kopfgeld = 2;
+      }
+      if (von && von !== k && !von.spieler && !von.mensch && Math.random() < 0.25) emoteZeigen(von, Math.random() < 0.5 ? 'gg' : 'haha');
+      if (royaleArt) {
         for (var e = 0; e < Math.max(1, k.energie); e++) energie.push({ x: k.x + rnd(-14, 14), y: k.y + rnd(-14, 14) });
-        k.platz = kaempfer.filter(function (o) { return !o.tot; }).length + 1;
-      } else k.respawn = 3;
+        if (duo) {
+          var teamLebt = kaempfer.some(function (o) { return o.team === k.team && !o.tot; });
+          if (!teamLebt) {
+            var teamsLebend = {}; kaempfer.forEach(function (o) { if (!o.tot) teamsLebend[o.team] = 1; });
+            var pl = Object.keys(teamsLebend).length + 1;
+            kaempfer.forEach(function (o) { if (o.team === k.team) o.platz = pl; });
+          }
+        } else k.platz = kaempfer.filter(function (o) { return !o.tot; }).length + 1;
+      } else k.respawn = training && !k.spieler ? 2 : 3;
     }
 
     // ---------- Angriffe ----------
@@ -348,6 +411,11 @@
         var m = schaden(o, dmg, k);
         if (heilt && m) heilen(k, m * heilt);
       });
+      tresore.forEach(function (t) {
+        if (t.team === k.team) return;
+        if (Math.hypot(t.x - k.x, t.y - k.y) > reich + t.r || Math.abs(winkelDiff(Math.atan2(t.y - k.y, t.x - k.x), w)) > breite / 2 + 0.4) return;
+        tresorTreffer(t, dmg, k);
+      });
       // Kisten zerschlagen
       var z = zielPunkt(k, w, reich * 0.7); kisteTreffen(Math.floor(z.x / T), Math.floor(z.y / T), dmg);
     }
@@ -360,7 +428,23 @@
     }
     function gegnerVon(k) { return kaempfer.filter(function (o) { return o.team !== k.team && !o.tot; }); }
 
+    function tresorTreffer(t, menge, von) {
+      if (t.hp <= 0 || ende) return;
+      if (von && von.dmgF) menge *= von.dmgF;
+      if (von && von.ultra > 0) menge *= 1.2;
+      menge = Math.round(menge);
+      t.hp -= menge; t.blitz = 0.12;
+      if (von) { von.statSchaden += menge; von.superLadung = Math.min(von.def.superKosten, von.superLadung + menge * 0.4 / (von.dmgF || 1)); }
+      zahl({ x: t.x + rnd(-10, 10), y: t.y - 40, t: 0, text: String(menge), farbe: '#ffd23f' });
+      if (t.hp <= 0) {
+        t.hp = 0;
+        for (var i = 0; i < 20; i++) fx({ art: 'splitter', x: t.x, y: t.y, vx: rnd(-250, 250), vy: rnd(-300, 50), t: 0, d: 0.9, farbe: i % 2 ? '#ffd23f' : '#8a8e96' });
+        sfx.noise(0.6, 0.35, 500); wackeln = 10;
+        abschluss(1 - t.team);
+      }
+    }
     function flaechenSchaden(k, x, y, rad, dmg, extra) {
+      tresore.forEach(function (t) { if (t.team !== k.team && Math.hypot(t.x - x, t.y - y) < rad + t.r * 0.6) tresorTreffer(t, dmg, k); });
       gegnerVon(k).forEach(function (o) {
         var d = Math.sqrt((o.x - x) * (o.x - x) + (o.y - y) * (o.y - y));
         if (d > rad + o.r * 0.5) return;
@@ -387,7 +471,7 @@
     // ---------- Supers ----------
     function superZuenden(k, w, dist) {
       if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.superLadung < k.def.superKosten || k.dash) return false;
-      k.superLadung = 0; k.blick = w; k.zuletztAktiv = zeit;
+      k.superLadung = 0; k.blick = w; k.zuletztAktiv = zeit; k.statSupers++;
       var maxD = (k.def.superReichweite || 0) * T, d = klemm(dist === undefined ? maxD : dist, T, Math.max(T, maxD)), z = zielPunkt(k, w, d);
       sfx.tone(660, 0.1, 'square', 0.07); sfx.tone(990, 0.18, 'square', 0.06, null, 0.08);
       fx({ art: 'ring', x: k.x, y: k.y, r: 10, t: 0, d: 0.4, farbe: k.def.farbe });
@@ -451,6 +535,11 @@
     var ball = modus === 'ball' ? { x: 0, y: 0, vx: 0, vy: 0, traeger: null, sperre: 0, kicker: null } : null;
     var tore = [0, 0], torAnsage = 0, torTeam = 0, TOR_X0 = 8 * T, TOR_X1 = 13 * T;
     var huegel = [0, 0], huegelHalter = -1, ZONE_R = 2.6 * T;
+    var teamKopf = [0, 0];
+    var tresore = modus === 'tresor' ? [{ team: 0, x: W / 2, y: HH - 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }, { team: 1, x: W / 2, y: 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }] : [];
+    if (modus === 'kopfgeld') dauer = 120;
+    if (modus === 'tresor') dauer = 150;
+    if (training) dauer = 9999;
     var sternT = 3, sternCountdown = null, sternTeam = -1, teamKos = [0, 0];
     var gas = { r: Math.hypot(W, HH) / 2 + T, ziel: T * 3, start: 20, dauer: 100 };
 
@@ -487,7 +576,8 @@
         }
       }
       if (b.x > TOR_X0 && b.x < TOR_X1 && (b.y < T * 0.45 || b.y > HH - T * 0.45)) {
-        var tm = b.y < T * 0.45 ? 0 : 1;
+        var tm = b.y < T * 0.45 ? 0 : 1, schuetze = b.traeger || b.kicker;
+        if (schuetze && schuetze.team === tm) schuetze.statTore++;
         tore[tm]++; torAnsage = 2.2; torTeam = tm;
         fx({ art: 'ring', x: b.x, y: b.y, r: 3 * T, t: 0, d: 0.6, farbe: '#fff' });
         sfx.tone(523, 0.12, 'square', 0.07); sfx.tone(784, 0.25, 'square', 0.07, null, 0.12);
@@ -568,6 +658,13 @@
           if (huegel[huegelHalter] >= 100) return abschluss(huegelHalter);
         }
         if (zeit >= dauer) return abschluss(huegel[0] > huegel[1] ? 0 : huegel[0] < huegel[1] ? 1 : -1);
+      } else if (modus === 'tresor') {
+        tresore.forEach(function (t) { if (t.blitz > 0) t.blitz -= dt; });
+        if (zeit >= dauer) { var a0 = tresore[0].hp / tresore[0].max, a1 = tresore[1].hp / tresore[1].max; return abschluss(a0 > a1 ? 0 : a0 < a1 ? 1 : -1); }
+      } else if (modus === 'kopfgeld') {
+        if (zeit >= dauer) return abschluss(teamKopf[0] > teamKopf[1] ? 0 : teamKopf[0] < teamKopf[1] ? 1 : -1);
+      } else if (training) {
+        return;
       } else if (modus === 'kloppe') {
         if (teamKos[0] >= 10) return abschluss(0);
         if (teamKos[1] >= 10) return abschluss(1);
@@ -583,12 +680,21 @@
           }
         });
         var lebend = kaempfer.filter(function (k) { return !k.tot; });
-        var menschDa = lebend.some(function (k) { return k === spieler || k.mensch; });
-        if (lebend.length <= 1 || !menschDa) { if (lebend.length === 1) lebend[0].platz = 1; return abschluss(-1); }
+        var menschTeams = {}; kaempfer.forEach(function (k) { if (k === spieler || k.mensch) menschTeams[k.team] = 1; });
+        var menschDa = lebend.some(function (k) { return menschTeams[k.team]; });
+        var teamsLebend = {}; lebend.forEach(function (k) { teamsLebend[k.team] = 1; });
+        if (Object.keys(teamsLebend).length <= 1 || !menschDa) {
+          if (Object.keys(teamsLebend).length === 1) kaempfer.forEach(function (k) { if (teamsLebend[k.team]) k.platz = 1; });
+          return abschluss(-1);
+        }
       }
     }
 
     // ---------- Bot-Gehirn ----------
+    function partnerWeit(k) {
+      var p = kaempfer.filter(function (o) { return o.team === k.team && o !== k && !o.tot; })[0];
+      return p && abst(p, k) > 5 * T ? p : null;
+    }
     function kiSchritt(k, dt) {
       var ki = k.ki, a = k.def.angriff;
       var reich = (a.art === 'nah' ? a.reichweite : a.reichweite) * T;
@@ -609,7 +715,7 @@
       var wohin = null, wunschAbst = a.art === 'nah' ? 0 : reich * 0.7;
       var schwach = k.hp < k.maxHp * 0.35;
 
-      if (modus === 'royale' && Math.hypot(k.x - W / 2, k.y - HH / 2) > gas.r - T * 2.5) wohin = { x: W / 2, y: HH / 2 };
+      if (royaleArt && Math.hypot(k.x - W / 2, k.y - HH / 2) > gas.r - T * 2.5) wohin = { x: W / 2, y: HH / 2 };
       else if (modus === 'sterne') {
         var meinTeam = teamSterne(k.team), andere = teamSterne(1 - k.team);
         if (k.sterne >= 3 && (schwach || (meinTeam >= 10 && meinTeam > andere))) wohin = spawnPunkt(k);
@@ -619,7 +725,9 @@
           if (nd < T * 14) wohin = ns;
         }
         if (!wohin && !z) wohin = { x: W / 2, y: HH / 2 + (k.team === 0 ? T * 2 : -T * 2) };
-      } else if (modus === 'royale' && !z) {
+      } else if (duo && !z && partnerWeit(k)) {
+        wohin = partnerWeit(k);
+      } else if (royaleArt && !z) {
         var ne = null, ned = 1e9;
         energie.forEach(function (e) { var dd = abst(k, e); if (dd < ned) { ned = dd; ne = e; } });
         if (ne && ned < T * 10) wohin = ne;
@@ -652,7 +760,22 @@
         var dz = Math.hypot(k.x - W / 2, k.y - HH / 2);
         if ((!z || d > T * 5) && dz > ZONE_R * 0.5) wohin = { x: W / 2 + Math.cos(kaempfer.indexOf(k)) * T, y: HH / 2 + Math.sin(kaempfer.indexOf(k)) * T };
       }
-      if (schwach && z && d < T * 6 && modus !== 'royale' && !(ball && ball.traeger === k)) wohin = spawnPunkt(k);
+      if (modus === 'tresor') {
+        var meiner = tresore[k.team], fremd = tresore[1 - k.team];
+        var stoerer = gegnerVon(k).filter(function (o) { return Math.hypot(o.x - meiner.x, o.y - meiner.y) < 6 * T && sichtbarFuer(o, k.team); })[0];
+        var verteidiger = kaempfer.filter(function (o) { return o.team === k.team; })[0] === k;
+        if (stoerer && (verteidiger || Math.hypot(k.x - meiner.x, k.y - meiner.y) < 8 * T)) { z = ki.ziel = stoerer; d = abst(k, z); }
+        else if (!z || d > T * 4.5) {
+          var dT = Math.hypot(fremd.x - k.x, fremd.y - k.y);
+          if (verteidiger && !stoerer) wohin = { x: meiner.x + Math.sin(zeit) * T * 2, y: meiner.y + (k.team === 0 ? -T * 2.5 : T * 2.5) };
+          else if (dT < reich * 0.9 && (a.art === 'wurf' || sichtfrei(k.x, k.y, fremd.x, fremd.y))) {
+            if (k.munition >= 1 && ki.schussT <= 0) { ki.schussT = rnd(0.3, 0.6); angreifen(k, Math.atan2(fremd.y - k.y, fremd.x - k.x), dT); }
+            if (k.superLadung >= k.def.superKosten) superZuenden(k, Math.atan2(fremd.y - k.y, fremd.x - k.x), dT);
+          } else wohin = fremd;
+        }
+      }
+      if (training) return { mx: 0, my: 0 };
+      if (schwach && z && d < T * 6 && !royaleArt && !(ball && ball.traeger === k)) wohin = spawnPunkt(k);
 
       var mx = 0, my = 0;
       if (wohin) {
@@ -675,14 +798,16 @@
         // Vorhalt: wohin der Gegner gleich läuft
         var flug = a.art === 'wurf' ? a.flugzeit : d / (a.tempo || 1000);
         var px = z.x + (z.vx || 0) * flug * 0.7, py = z.y + (z.vy || 0) * flug * 0.7;
-        var zielW = Math.atan2(py - k.y, px - k.x) + rnd(-0.12, 0.12);
+        var fehler = rangspiel ? 0.05 : 0.12;
+        var zielW = Math.atan2(py - k.y, px - k.x) + rnd(-fehler, fehler);
         var mitBall = ball && ball.traeger === k;
         if (k.tricks > 0 && k.trickT <= 0 && d < reich * 1.2 && Math.random() < dt * 0.6) {
           var heil = ['ring', 'flasche', 'borschtsch', 'strauss'].indexOf(k.def.trick) >= 0;
           if (!heil || k.hp < k.maxHp * 0.5) trickAusloesen(k, k.def.trick === 'rueckzug' ? zielW : zielW, d);
         }
         if (!mitBall && frei2 && d < reich * 0.95 + z.r && ki.schussT <= 0 && k.munition >= 1) {
-          ki.schussT = rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0);
+          ki.schussT = (rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0)) * (rangspiel ? 0.75 : 1);
+          if (ultraBereit(k) && d < reich) ultraZuenden(k);
           angreifen(k, zielW, Math.hypot(px - k.x, py - k.y));
         }
         if (k.superLadung >= k.def.superKosten && ki.schussT < 0.3) {
@@ -700,11 +825,13 @@
     var tasten = {}, maus = { x: 0, y: 0, unten: false, drin: false };
     var touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
     var stickL = null, stickR = null, stickS = null;   // { id, sx, sy, x, y }
-    var superKnopf = { x: 0, y: 0, r: 46 }, angriffKnopf = { x: 0, y: 0, r: 58 }, trickKnopf = { x: 0, y: 0, r: 30 };
+    var superKnopf = { x: 0, y: 0, r: 46 }, angriffKnopf = { x: 0, y: 0, r: 58 }, trickKnopf = { x: 0, y: 0, r: 30 }, ultraKnopf = { x: 0, y: 0, r: 30 };
     function istTaste(c) { return tasten[c]; }
     function aufTaste(e) {
       tasten[e.code] = e.type === 'keydown';
       if (e.type === 'keydown' && (e.code === 'Space' || e.code === 'KeyE')) { e.preventDefault(); spielerSuper(mausWinkel(), mausDist()); }
+      if (e.type === 'keydown' && e.code === 'KeyR') { e.preventDefault(); spielerUltra(); }
+      if (e.type === 'keydown' && /^Digit[1-9]$/.test(e.code)) { var ei = +e.code.slice(5) - 1; if (meineEmotes[ei]) spielerEmote(meineEmotes[ei]); }
       if (e.type === 'keydown' && (e.code === 'KeyQ' || e.code === 'KeyF')) { e.preventDefault(); spielerTrick(mausWinkel(), mausDist()); }
       if (e.type === 'keydown' && e.code === 'Escape') aufgeben();
     }
@@ -727,6 +854,7 @@
       e.preventDefault(); touch = true;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i], s = { id: t.identifier, sx: t.clientX, sy: t.clientY, x: t.clientX, y: t.clientY, t0: zeit };
+        if (ultraBereit(spieler) && nahe(t, ultraKnopf)) { spielerUltra(); continue; }
         if (spieler.tricks > 0 && nahe(t, trickKnopf)) { var az = autoZiel(false); spielerTrick(stickL ? Math.atan2(stickL.y - stickL.sy, stickL.x - stickL.sx) : az.w, az.d); continue; }
         if (!stickS && superBereit() && nahe(t, superKnopf)) { s.sx = superKnopf.x; s.sy = superKnopf.y; stickS = s; }
         else if (t.clientX < VW * 0.45 && !stickL) stickL = s;
@@ -776,6 +904,27 @@
       if (gast) { netz.senden({ t: 'an_host', d: { a: 'trick', w: w, d: d } }); spieler.trickT = 4; return; }
       trickAusloesen(spieler, w, d);
     }
+    var meineEmotes = (opt.emotes && opt.emotes.length ? opt.emotes : ['gg', 'haha', 'ups', 'herz']).slice(0, 9);
+    function spielerUltra() {
+      if (ende || pausiert || !ultraBereit(spieler)) return;
+      if (gast) { netz.senden({ t: 'an_host', d: { a: 'ultra' } }); return; }
+      ultraZuenden(spieler);
+    }
+    function spielerEmote(id) {
+      if (ende) return;
+      if (gast) { netz.senden({ t: 'an_host', d: { a: 'emote', e: id } }); return; }
+      emoteZeigen(spieler, id);
+    }
+    // Emote-Knopf mit Auswahl (für Maus und Touch)
+    var emoteKnopf = document.createElement('button'); emoteKnopf.type = 'button'; emoteKnopf.className = 'emoteknopf'; emoteKnopf.textContent = '💬';
+    emoteKnopf.setAttribute('aria-label', 'Emote senden'); root.appendChild(emoteKnopf);
+    var emoteListe = document.createElement('div'); emoteListe.className = 'emoteliste'; emoteListe.hidden = true; root.appendChild(emoteListe);
+    meineEmotes.forEach(function (id, i) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = (touch ? '' : (i + 1) + ' ') + BS.emote(id).text;
+      b.addEventListener('click', function () { spielerEmote(id); emoteListe.hidden = true; });
+      emoteListe.appendChild(b);
+    });
+    emoteKnopf.addEventListener('click', function () { emoteListe.hidden = !emoteListe.hidden; });
     function superBereit() { return !spieler.tot && spieler.superLadung >= spieler.def.superKosten; }
     var gastAngriffT = 0;
     function spielerAngriff(w, d) {
@@ -802,7 +951,8 @@
         if (a !== 'ja') return;
         if (host) { netz.senden({ t: 'an_alle', d: { t: 'abbruch' } }); netz.senden({ t: 'ende' }); beenden({ ergebnis: 'abbruch' }); return; }
         if (gast) netz.senden({ t: 'an_host', d: { a: 'aufgeben' } });
-        beenden(modus === 'royale' ? { ergebnis: 'raus', platz: spieler.platz || kaempfer.filter(function (k) { return !k.tot; }).length, kos: spieler.kos }
+        if (training) { beenden({ ergebnis: 'training' }); return; }
+        beenden(royaleArt ? { ergebnis: 'raus', platz: spieler.platz || kaempfer.filter(function (k) { return !k.tot; }).length, kos: spieler.kos }
           : { ergebnis: 'niederlage', kos: spieler.kos, sterne: modus === 'sterne' ? teamSterne(spieler.team) : 0 });
       });
     }
@@ -833,7 +983,7 @@
         k: kaempfer.map(function (k) {
           return [r1(k.x), r1(k.y), Math.max(0, Math.ceil(k.hp)), k.maxHp, r2(k.blick), k.munition, r2(k.ladeT), Math.round(k.superLadung), k.sterne, k.energie,
             k.tot ? 1 : 0, r2(k.respawn), k.kos, r2(k.gross), r2(k.schild), r2(k.unsichtbar), r2(k.betaeubt), k.bewegt ? 1 : 0,
-            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt)];
+            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld];
         }),
         p: projektile.map(function (p) {
           return p.wurf ? [1, r1(p.sx), r1(p.sy), r1(p.tx), r1(p.ty), r2(p.t), p.T, r1(p.flaeche), p.look]
@@ -843,7 +993,7 @@
         e: energie.map(function (o) { return [r1(o.x), r1(o.y)]; }),
         f: flaechen.map(function (o) { return [r1(o.x), r1(o.y), r1(o.r)]; }),
         b: ball ? [r1(ball.x), r1(ball.y), r1(ball.vx), r1(ball.vy), ball.traeger ? kaempfer.indexOf(ball.traeger) : -1] : null, to: tore,
-        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter],
+        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter], tr: tresore.map(function (t) { return Math.round(t.hp); }), kg: teamKopf,
         g: r1(gas.r), tk: teamKos, sc: sternCountdown === null ? null : r2(sternCountdown), st: sternTeam, ev: ev };
       ev = [];
       netz.senden({ t: 'an_alle', d: d });
@@ -859,7 +1009,7 @@
         k.munition = a[5]; k.ladeT = a[6]; k.superLadung = a[7]; k.sterne = a[8]; k.energie = a[9]; k.tot = !!a[10]; k.respawn = a[11]; k.kos = a[12];
         k.gross = a[13]; k.schild = a[14]; k.unsichtbar = a[15]; k.betaeubt = a[16]; k.bewegt = !!a[17];
         k.dash = a[18] ? { look: a[18] === 1 ? 'boot' : 'sprint' } : null; k.zuletztAktiv = zeit - a[19] / 10; k.platz = a[20];
-        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23];
+        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26];
       });
       projektile = d.p.map(function (a) {
         return a[0] ? { wurf: true, sx: a[1], sy: a[2], tx: a[3], ty: a[4], t: a[5], T: a[6], flaeche: a[7], look: a[8] }
@@ -871,11 +1021,14 @@
       if (ball && d.b) { ball.x = d.b[0]; ball.y = d.b[1]; ball.vx = d.b[2]; ball.vy = d.b[3]; ball.traeger = d.b[4] >= 0 ? kaempfer[d.b[4]] : null; ball.da = true; }
       if (d.to) { if (d.to[0] + d.to[1] > tore[0] + tore[1]) { torAnsage = 2.2; torTeam = d.to[0] > tore[0] ? 0 : 1; } tore = d.to; }
       if (d.hz) { huegel = [d.hz[0], d.hz[1]]; huegelHalter = d.hz[2]; }
+      if (d.tr) d.tr.forEach(function (hp, i) { if (tresore[i]) { if (hp < tresore[i].hp) tresore[i].blitz = 0.12; tresore[i].hp = hp; } });
+      if (d.kg) teamKopf = d.kg;
       gas.r = d.g; teamKos = d.tk; sternCountdown = d.sc; sternTeam = d.st;
       d.ev.forEach(function (e) {
         if (e[0] === 'f') effekte.push(e[1]);
         else if (e[0] === 'z') zahlen.push(e[1]);
         else if (e[0] === 'w') { feld[e[2] * B + e[1]] = 0; feldZeichnen(e[1], e[2]); }
+        else if (e[0] === 'm') { var ek = kaempfer[e[1]]; if (ek) ek.emote = { id: e[2], t: 2.2 }; }
         else if (e[0] === 's') Pixel.sfx[e[1] === 0 ? 'tone' : 'noise'].apply(null, e[2]);
       });
     }
@@ -890,6 +1043,8 @@
       if (ball && !ball.traeger) { ball.x += ball.vx * dt; ball.y += ball.vy * dt; }
       if (ball && ball.traeger) { ball.x = ball.traeger.x + Math.cos(ball.traeger.blick) * 16; ball.y = ball.traeger.y + 2 + Math.sin(ball.traeger.blick) * 10; }
       if (torAnsage > 0) torAnsage -= dt;
+      tresore.forEach(function (t) { if (t.blitz > 0) t.blitz -= dt; });
+      kaempfer.forEach(function (k) { if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; } });
       effekte.forEach(function (e) { e.t += dt; if (e.vx !== undefined) { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 400 * dt; } });
       effekte = effekte.filter(function (e) { return e.t < e.d; });
       zahlen.forEach(function (z) { z.t += dt; z.y -= 40 * dt; });
@@ -906,6 +1061,8 @@
         if (o.t === 'von') {
           var k = menschVon(o.id), d = o.d || {}; if (!k || !k.eingabe) return;
           if (d.a === 'trick') { trickAusloesen(k, +d.w || 0, +d.d || 0); return; }
+          if (d.a === 'ultra') { ultraZuenden(k); return; }
+          if (d.a === 'emote') { emoteZeigen(k, String(d.e)); return; }
           if (d.a === 'e') k.eingabe = { mx: klemm(+d.mx || 0, -1, 1), my: klemm(+d.my || 0, -1, 1), b: +d.b || 0 };
           else if (d.a === 'angriff') angreifen(k, +d.w || 0, +d.d || 0);
           else if (d.a === 'super') superZuenden(k, +d.w || 0, +d.d || 0);
@@ -927,7 +1084,8 @@
           if (team) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; } }
           return;
         }
-        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+        if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
+        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
         // Munition
         var lt = k.def.laden * k.ladeF * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
         if (k.munition < 3) { k.ladeT += dt; if (k.ladeT >= lt) { k.ladeT = 0; k.munition++; } } else k.ladeT = 0;
@@ -966,7 +1124,7 @@
             var m = kiSchritt(k, dt); mx = m.mx; my = m.my;
             if (mx || my) { if (!k.ki.ziel) k.blick = Math.atan2(my, mx); else k.blick = Math.atan2(k.ki.ziel.y - k.y, k.ki.ziel.x - k.x); }
           }
-          var tempo = k.def.tempo * k.tempoF * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
+          var tempo = k.def.tempo * k.tempoF * (k.ultra > 0 ? 1.2 : 1) * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
           if (fPx(k.x, k.y) === 2) tempo *= 0.95;
           bewegen(k, mx * tempo * dt, my * tempo * dt);
         }
@@ -978,13 +1136,21 @@
           var st = sterne[s]; if (st.sperre > 0) continue;
           if (Math.hypot(st.x - k.x, st.y - k.y) < k.r + 16) { sterne.splice(s, 1); k.sterne++; if (k === spieler || k.team === spieler.team) sfx.tone(1400, 0.06, 'triangle', 0.05); }
         }
-        if (modus === 'royale') for (var e = energie.length - 1; e >= 0; e--) {
+        if (royaleArt) for (var e = energie.length - 1; e >= 0; e--) {
           var en = energie[e];
           if (Math.hypot(en.x - k.x, en.y - k.y) < k.r + 14) {
             energie.splice(e, 1); k.energie++; k.maxHp += Math.round(k.def.hp * 0.1); heilen(k, k.def.hp * 0.1);
             if (k === spieler) sfx.tone(900, 0.1, 'square', 0.05, 1500);
           }
         }
+      });
+      // Tresore sind fest
+      tresore.forEach(function (t) {
+        kaempfer.forEach(function (k) {
+          if (k.tot) return;
+          var dd = Math.hypot(k.x - t.x, k.y - t.y), min = t.r + k.r * 0.7;
+          if (dd < min && dd > 0.01) { k.x = t.x + (k.x - t.x) / dd * min; k.y = t.y + (k.y - t.y) / dd * min; }
+        });
       });
       // Kämpfer nicht ineinander
       for (var i2 = 0; i2 < kaempfer.length; i2++) for (var j = i2 + 1; j < kaempfer.length; j++) {
@@ -1005,6 +1171,7 @@
             if (f.bremst) o.gebremst = Math.max(o.gebremst, 0.6);
             if (f.stoss) { var sw = Math.atan2(o.y - f.y, o.x - f.x); o.stoss = { vx: Math.cos(sw) * f.stoss, vy: Math.sin(sw) * f.stoss, t: 0.2 }; }
           });
+          if (f.dps) tresore.forEach(function (t) { if (t.team !== f.team && Math.hypot(t.x - f.x, t.y - f.y) < f.r + t.r * 0.5) tresorTreffer(t, f.dps / 2, f.owner); });
         }
       });
       flaechen = flaechen.filter(function (f) { return f.t < f.d; });
@@ -1054,6 +1221,14 @@
               }
               fx({ art: 'staub', x: p.x, y: p.y, t: 0, d: 0.25, farbe: '#fff' }); weg = true; break;
             }
+            for (var ti = 0; ti < tresore.length && !weg; ti++) {
+              var tz = tresore[ti];
+              if (tz.team === p.team || (p.getroffen && p.getroffen.indexOf(tz) >= 0)) continue;
+              if (Math.hypot(tz.x - p.x, tz.y - (p.y + SH)) > tz.r + p.r) continue;
+              tresorTreffer(tz, p.schaden, p.owner);
+              if (p.durch) p.getroffen.push(tz); else weg = true;
+            }
+            if (weg) break;
             for (var k = 0; k < kaempfer.length; k++) {
               var o = kaempfer[k];
               if (o.tot || o.team === p.team || p.getroffen.indexOf(o) >= 0) continue;
@@ -1091,6 +1266,7 @@
       superKnopf.x = VW - 190; superKnopf.y = VH - 70;
       if (VW < 500) { angriffKnopf.x = VW - 74; angriffKnopf.y = VH - 150; superKnopf.x = VW - 170; superKnopf.y = VH - 74; }
       trickKnopf.x = superKnopf.x - 30; trickKnopf.y = superKnopf.y - 92;
+      ultraKnopf.x = angriffKnopf.x + 4; ultraKnopf.y = angriffKnopf.y - 112;
     }
     groesse(); addEventListener('resize', groesse);
 
@@ -1101,12 +1277,14 @@
       if (!sicht && !eigen) return;
       var transparent = (k.unsichtbar > 0 || (inHecke(k) && eigen)) ? 0.45 : 1;
       var def = k.def, img = (k.bewegt && def.laufSprite) ? def.laufSprite(k.lauf) : def.sprite(k.superLadung >= def.superKosten ? 'super' : 'normal');
+      if (k.skin) img = BS.umfaerben(img, k.skin);
       var s = (def.skala || 2) * (k.gross > 0 ? 1.6 : 1);
       var bw = img.width * s, bh = img.height * s, bob = k.bewegt ? Math.abs(Math.sin(k.lauf * 12)) * 3 : 0;
       ctx.globalAlpha = transparent;
       // Schatten + Teamring
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(k.x, k.y + 6, bw * 0.42, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = k === spieler ? '#7dff8a' : (team && k.team === spieler.team ? TEAMFARBE[0] : TEAMFARBE[1]); ctx.lineWidth = 3;
+      ctx.strokeStyle = k === spieler ? '#7dff8a' : (k.team === spieler.team ? TEAMFARBE[0] : TEAMFARBE[1]);
+      if (k.ultra > 0) { ctx.save(); ctx.globalAlpha = 0.35 + Math.sin(zeit * 12) * 0.15; ctx.fillStyle = '#c46aff'; ctx.beginPath(); ctx.ellipse(k.x, k.y - 20, bw * 0.7, bh * 0.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } ctx.lineWidth = 3;
       ctx.beginPath(); ctx.ellipse(k.x, k.y + 6, bw * 0.46, 10, 0, 0, Math.PI * 2); ctx.stroke();
       if (k.dash && k.dash.look === 'boot') {
         ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.ellipse(k.x, k.y + 2, 30, 14, k.blick, 0, Math.PI * 2); ctx.fill();
@@ -1120,7 +1298,7 @@
       // Leiste über dem Kopf
       var lb = 54, ly = k.y + 8 - bh - 22;
       ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(k.x - lb / 2 - 2, ly - 2, lb + 4, 10);
-      ctx.fillStyle = k === spieler ? '#7dff8a' : (team && eigen ? '#3fa2ff' : '#ff4d5a');
+      ctx.fillStyle = k === spieler ? '#7dff8a' : (eigen ? '#3fa2ff' : '#ff4d5a');
       ctx.fillRect(k.x - lb / 2, ly, lb * klemm(k.hp / k.maxHp, 0, 1), 6);
       var name = k === spieler ? 'DU' : (k.name || def.name.split(' ')[0]);
       ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'center';
@@ -1131,6 +1309,14 @@
           var voll = m < k.munition ? 1 : m === k.munition ? k.ladeT / k.def.laden : 0;
           ctx.fillStyle = '#ffa53a'; ctx.fillRect(k.x - lb / 2 + m * (lb / 3), ly + 9, (lb / 3 - 2) * voll, 5);
         }
+      }
+      if (modus === 'kopfgeld') { zeichneStern(k.x - lb / 2 - 12, ly + 2, 8, '#ffd23f'); ctx.fillStyle = '#fff'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'right'; ctx.fillText(k.kopfgeld, k.x - lb / 2 - 22, ly + 7); }
+      if (k.emote) {
+        var et = BS.emote(k.emote.id).text; ctx.font = '11px "Press Start 2P", monospace'; ctx.textAlign = 'center';
+        var ew = ctx.measureText(et).width + 16, ey = ly - 34 - (2.2 - k.emote.t < 0.15 ? (0.15 - (2.2 - k.emote.t)) * 60 : 0);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.rect(k.x - ew / 2, ey - 16, ew, 24); ctx.moveTo(k.x - 6, ey + 8); ctx.lineTo(k.x, ey + 15); ctx.lineTo(k.x + 6, ey + 8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#1c1430'; ctx.fillText(et, k.x, ey + 1);
       }
       if (k.sterne > 0) { zeichneStern(k.x + lb / 2 + 10, ly + 2, 8); ctx.fillStyle = '#fff'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText(k.sterne, k.x + lb / 2 + 20, ly + 7); }
       if (k.energie > 0) { ctx.fillStyle = '#6ef08a'; ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText('⚡' + k.energie, k.x + lb / 2 + 4, ly + 7); }
@@ -1185,9 +1371,9 @@
       ctx.fillStyle = '#2a2236'; ctx.fillRect(0, 0, VW, VH);
       // Kamera
       var fokus = spieler;
-      if (spieler.tot && modus === 'royale') {   // raus: anderen zuschauen
+      if (spieler.tot && royaleArt) {   // raus: anderen zuschauen (im Duo zuerst dem Partner)
         var lebend = kaempfer.filter(function (k) { return !k.tot; });
-        fokus = lebend.filter(function (k) { return k.mensch; })[0] || lebend[0] || spieler;
+        fokus = lebend.filter(function (k) { return k.team === spieler.team; })[0] || lebend.filter(function (k) { return k.mensch; })[0] || lebend[0] || spieler;
       }
       var zx = fokus.x + Math.cos(fokus.blick) * 30, zy = fokus.y - 20 + Math.sin(fokus.blick) * 30;
       kamX += (zx - kamX) * 0.12; kamY += (zy - kamY) * 0.12;
@@ -1237,6 +1423,17 @@
 
       // Kämpfer nach y sortiert
       kaempfer.slice().sort(function (a, b) { return a.y - b.y; }).forEach(zeichneKaempfer);
+      tresore.forEach(function (t) {
+        var meins = t.team === spieler.team;
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(t.x, t.y + 22, 34, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = t.blitz > 0 ? '#fff' : '#6a6e78'; ctx.fillRect(t.x - 30, t.y - 34, 60, 56);
+        ctx.fillStyle = t.blitz > 0 ? '#fff' : '#8a8e98'; ctx.fillRect(t.x - 26, t.y - 30, 52, 48);
+        ctx.strokeStyle = '#3a3e48'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(t.x, t.y - 6, 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#ffd23f'; ctx.fillRect(t.x - 2, t.y - 19, 4, 10); ctx.fillRect(t.x + 18, t.y - 10, 5, 10);
+        ctx.strokeStyle = meins ? '#3fa2ff' : '#ff4d5a'; ctx.lineWidth = 4; ctx.strokeRect(t.x - 32, t.y - 36, 64, 60);
+        ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(t.x - 36, t.y - 52, 72, 10);
+        ctx.fillStyle = meins ? '#3fa2ff' : '#ff4d5a'; ctx.fillRect(t.x - 34, t.y - 50, 68 * t.hp / t.max, 6);
+      });
       projektile.forEach(zeichneProjektil);
       if (ball && ball.da) {
         var bh2 = ball.traeger ? 0 : Math.min(10, Math.hypot(ball.vx, ball.vy) / 60);
@@ -1279,7 +1476,7 @@
       });
 
       // Kreidestaub (Royale)
-      if (modus === 'royale' && gas.r < Math.hypot(W, HH) / 2) {
+      if (royaleArt && gas.r < Math.hypot(W, HH) / 2) {
         ctx.save();
         ctx.beginPath(); ctx.rect(-T * 3, -T * 3, W + T * 6, HH + T * 6); ctx.arc(W / 2, HH / 2, gas.r, 0, Math.PI * 2, true);
         ctx.fillStyle = 'rgba(235,240,255,.45)'; ctx.fill('evenodd');
@@ -1346,6 +1543,12 @@
       ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(sp.sx, sp.sy, superKnopf.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anteil); ctx.stroke();
       if (bereit) { var sx = sp.x - sp.sx, sy = sp.y - sp.sy, sl = Math.hypot(sx, sy), sf = sl > STICK ? STICK / sl : 1; kreis(sp.sx + sx * sf, sp.sy + sy * sf, 20, '#ffd23f'); }
       ctx.fillStyle = bereit ? '#3a2400' : 'rgba(255,255,255,.6)'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('SUPER', sp.sx, sp.sy + 4);
+      if (spieler.ultraOk) {
+        var ub = ultraBereit(spieler), ua = spieler.ultra > 0 ? spieler.ultra / 5 : spieler.ultraLadung / (spieler.def.superKosten * 1.5);
+        kreis(ultraKnopf.x, ultraKnopf.y, ultraKnopf.r, ub ? 'rgba(196,106,255,.6)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.3)');
+        ctx.strokeStyle = '#c46aff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ultraKnopf.x, ultraKnopf.y, ultraKnopf.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ua); ctx.stroke();
+        ctx.fillStyle = ub ? '#2a0a3a' : 'rgba(255,255,255,.5)'; ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('ULTRA', ultraKnopf.x, ultraKnopf.y + 4);
+      }
       if (spieler.stufe >= BS.TRICK_AB) {
         var tb = spieler.tricks > 0 && spieler.trickT <= 0;
         kreis(trickKnopf.x, trickKnopf.y, trickKnopf.r, tb ? 'rgba(110,240,138,.55)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.3)');
@@ -1369,16 +1572,26 @@
       } else if (modus === 'huegel') {
         var hz = huegelHalter === -2 ? 'umkämpft!' : huegelHalter === -1 ? 'frei' : huegelHalter === spieler.team ? 'eure Zone' : 'gegnerische Zone';
         h = '<div class="punkte"><span class="blau">♛ ' + Math.floor(huegel[spieler.team]) + ' %</span><span class="uhr">' + uhr + '</span><span class="rotx">' + Math.floor(huegel[1 - spieler.team]) + ' % ♛</span></div><div class="ansage">Zone: ' + hz + '</div>';
+      } else if (modus === 'tresor') {
+        var tm0 = tresore[spieler.team], tm1 = tresore[1 - spieler.team];
+        h = '<div class="punkte"><span class="blau">🔒 ' + Math.ceil(tm0.hp / tm0.max * 100) + ' %</span><span class="uhr">' + uhr + '</span><span class="rotx">' + Math.ceil(tm1.hp / tm1.max * 100) + ' % 🔒</span></div>';
+      } else if (modus === 'kopfgeld') {
+        h = '<div class="punkte"><span class="blau">★ ' + teamKopf[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + teamKopf[1 - spieler.team] + ' ★</span></div><div class="ansage">Dein Kopfgeld: ' + spieler.kopfgeld + ' ★</div>';
+      } else if (training) {
+        h = '<div class="punkte"><span>🎯 Trainingsplatz</span></div><div class="ansage">Probier alles aus – ✕ oben rechts beendet das Training.</div>';
       } else if (modus === 'kloppe') {
         h = '<div class="punkte"><span class="blau">✊ ' + teamKos[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + teamKos[1 - spieler.team] + ' ✊</span></div>';
       } else {
         var lebend = kaempfer.filter(function (k) { return !k.tot; }).length;
+        if (duo) { var tl = {}; kaempfer.forEach(function (k) { if (!k.tot) tl[k.team] = 1; }); lebend = Object.keys(tl).length + ' Duos'; }
         h = '<div class="punkte"><span>☠ ' + lebend + ' übrig</span>' + (spieler.energie ? '<span class="gruen">⚡ ' + spieler.energie + '</span>' : '') + '</div>';
         if (zeit > gas.start - 4 && zeit < gas.start + 2) h += '<div class="ansage">Der Kreidestaub kommt!</div>';
       }
-      if (spieler.tot && !team) h += '<div class="ansage gross">Raus – Platz ' + (spieler.platz || '?') + '<br><small>Du schaust zu …</small></div>';
+      if (spieler.tot && duo && kaempfer.some(function (k) { return k.team === spieler.team && !k.tot; })) h += '<div class="ansage">Raus – dein Partner kämpft weiter!</div>';
+      else if (spieler.tot && !team) h += '<div class="ansage gross">Raus – Platz ' + (spieler.platz || '?') + '<br><small>Du schaust zu …</small></div>';
       if (spieler.tot && team) h += '<div class="ansage gross">K.o.! Zurück in ' + Math.ceil(spieler.respawn) + '</div>';
       if (!touch) h += '<div class="superanz' + (superBereit() ? ' bereit' : '') + '"><i style="width:' + Math.round(spieler.superLadung / spieler.def.superKosten * 100) + '%"></i><span>' + (superBereit() ? 'SUPER BEREIT – Leertaste / Rechtsklick' : 'Super lädt …') + '</span></div>'
+        + (spieler.ultraOk ? '<div class="ultraanz' + (ultraBereit(spieler) ? ' bereit' : '') + (spieler.ultra > 0 ? ' aktiv' : '') + '">' + (spieler.ultra > 0 ? 'ULTRA AKTIV' : ultraBereit(spieler) ? 'ULTRA (R)!' : 'Ultra ' + Math.floor(spieler.ultraLadung / (spieler.def.superKosten * 1.5) * 100) + ' %') + '</div>' : '')
         + (spieler.stufe >= BS.TRICK_AB ? '<div class="trickanz' + (spieler.tricks > 0 && spieler.trickT <= 0 ? ' bereit' : '') + '">Trick (Q): ' + spieler.tricks + '×</div>' : '');
       if (zeit < 3) h += '<div class="ansage gross">' + BS.MODI.filter(function (m) { return m.id === modus; })[0].name + '</div>';
       if (h !== letzterHud) { hud.innerHTML = h; letzterHud = h; }
@@ -1388,8 +1601,11 @@
     var aus = false;
     function abschluss(sieger) {
       function fuer(k) {
-        if (modus === 'royale') return { ergebnis: k.platz === 1 ? 'sieg' : 'raus', platz: k.platz || 1, kos: k.kos, sterne: 0 };
-        return { ergebnis: sieger === -1 ? 'unentschieden' : k.team === sieger ? 'sieg' : 'niederlage', platz: 0, kos: k.kos, sterne: modus === 'sterne' ? teamSterne(k.team) : 0 };
+        var st = { kos: k.kos, schaden: Math.round(k.statSchaden), supers: k.statSupers, tore: k.statTore };
+        if (royaleArt) { st.ergebnis = k.platz === 1 ? 'sieg' : 'raus'; st.platz = k.platz || 1; st.sterne = 0; return st; }
+        st.ergebnis = sieger === -1 ? 'unentschieden' : k.team === sieger ? 'sieg' : 'niederlage'; st.platz = 0;
+        st.sterne = modus === 'sterne' ? teamSterne(k.team) : modus === 'kopfgeld' ? teamKopf[k.team] : 0;
+        return st;
       }
       if (host) {
         var r = {};
@@ -1403,6 +1619,7 @@
     function beenden(e) {
       if (ende) return;
       ende = e; e.kos = e.kos || 0; e.online = !!netz;
+      if (e.schaden === undefined) { e.schaden = Math.round(spieler.statSchaden); e.supers = spieler.statSupers; e.tore = spieler.statTore; }
       var ergebnis = e.ergebnis;
       if (ergebnis === 'sieg') { sfx.tone(523, 0.15, 'square', 0.07); sfx.tone(659, 0.15, 'square', 0.07, null, 0.15); sfx.tone(784, 0.3, 'square', 0.07, null, 0.3); }
       else if (ergebnis === 'niederlage' || ergebnis === 'raus') sfx.tone(300, 0.5, 'sawtooth', 0.06, 120);
