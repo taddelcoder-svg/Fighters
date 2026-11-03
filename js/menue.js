@@ -4,6 +4,13 @@
   var pokale = {};
   try { pokale = JSON.parse(Pixel.get(K_POKALE, '{}')) || {}; } catch (e) { pokale = {}; }
   var siege = +Pixel.get(K_SIEGE, '0') || 0;
+  // Münzen und Stufen: Münzen gibt es nach jeder Runde, damit werden Kämpfer bis Stufe 9 verbessert
+  var K_MUENZEN = 'bravostars.muenzen', K_STUFEN = 'bravostars.stufen', K_TAG = 'bravostars.tagessieg';
+  var muenzen = +Pixel.get(K_MUENZEN, '0') || 0, stufen = {};
+  try { stufen = JSON.parse(Pixel.get(K_STUFEN, '{}')) || {}; } catch (e) { stufen = {}; }
+  // Alte Pokale vom Doppel-Kämpfer gehen an Damon und Moritz
+  if (pokale.doppeldate) { pokale.damon = (pokale.damon || 0) + pokale.doppeldate; pokale.moritz = (pokale.moritz || 0) + pokale.doppeldate; delete pokale.doppeldate; }
+  function stufe(id) { return Math.max(1, Math.min(BS.MAX_STUFE, stufen[id] || 1)); }
   var wahl = Pixel.get(K_WAHL, 'matteo'), modus = Pixel.get(K_MODUS, 'sterne');
   if (!BS.KAEMPFER.some(function (k) { return k.id === wahl; })) wahl = 'matteo';
   if (!BS.MODI.some(function (m) { return m.id === modus; })) modus = 'sterne';
@@ -18,7 +25,7 @@
   function istHost() { return online && online.host === Netz.ich; }
 
   function gesamt() { var s = 0; for (var k in pokale) s += pokale[k] || 0; return s; }
-  function speichern() { Pixel.set(K_POKALE, JSON.stringify(pokale)); Pixel.set(K_SIEGE, siege); }
+  function speichern() { Pixel.set(K_POKALE, JSON.stringify(pokale)); Pixel.set(K_SIEGE, siege); Pixel.set(K_MUENZEN, muenzen); Pixel.set(K_STUFEN, JSON.stringify(stufen)); }
   // Rangliste der Spielesammlung: Punkte = alle Pokale, Progress = wie viele Kämpfer schon 100 Pokale haben (anteilig)
   window.SLRangAdapter = function () {
     var p = 0; BS.KAEMPFER.forEach(function (k) { p += Math.min(100, pokale[k.id] || 0); });
@@ -33,7 +40,7 @@
   }
 
   function aufbauen() {
-    gesamtEl.textContent = '🏆 ' + gesamt();
+    gesamtEl.textContent = '🏆 ' + gesamt() + '   🪙 ' + muenzen;
     liste.innerHTML = '';
     BS.KAEMPFER.forEach(function (def, i) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'karte' + (def.id === wahl ? ' an' : '');
@@ -43,9 +50,10 @@
       b.appendChild(bild);
       var n = document.createElement('div'); n.className = 'name'; n.textContent = def.name; b.appendChild(n);
       var p = document.createElement('div'); p.className = 'pok'; p.textContent = '🏆 ' + (pokale[def.id] || 0); b.appendChild(p);
+      var st = document.createElement('div'); st.className = 'stufe'; st.textContent = 'St. ' + stufe(def.id); b.appendChild(st);
       b.addEventListener('click', function () {
         wahl = def.id; Pixel.set(K_WAHL, wahl); Pixel.sfx.tone(700, 0.05, 'square', 0.04);
-        if (online) Netz.senden({ t: 'wahl', kaempfer: wahl });
+        if (online) Netz.senden({ t: 'wahl', kaempfer: wahl, stufe: stufe(wahl) });
         aufbauen();
       });
       liste.appendChild(b);
@@ -67,6 +75,32 @@
       z.querySelector('span').textContent = x[0];
       w.appendChild(z);
     });
+    // Stufe, Trick, Talent
+    var sd = stufe(d.id), f = 1 + (sd - 1) * 0.07;
+    var x = document.createElement('div'); x.className = 'extras';
+    x.innerHTML = '<p class="ab"><b>Stufe <span class="sn"></span>/' + BS.MAX_STUFE + '</b> · <span class="sw"></span></p>'
+      + '<p class="ab tr"><b>Trick: <span class="tn"></span></b> <span class="tt"></span></p>'
+      + '<p class="ab ta"><b>Talent: <span class="an"></span></b> <span class="at"></span></p>';
+    x.querySelector('.sn').textContent = sd;
+    x.querySelector('.sw').textContent = Math.round(d.hp * f * (sd >= BS.TALENT_AB && d.talent.hp || 1)) + ' Leben · ' + Math.round(f * 100) + ' % Schaden';
+    x.querySelector('.tn').textContent = d.trickName; x.querySelector('.tt').textContent = d.trickText + (sd < BS.TRICK_AB ? ' 🔒 ab Stufe ' + BS.TRICK_AB : ' (3× pro Runde)');
+    x.querySelector('.an').textContent = d.talentName; x.querySelector('.at').textContent = d.talentText + (sd < BS.TALENT_AB ? ' 🔒 ab Stufe ' + BS.TALENT_AB : '');
+    if (sd < BS.TRICK_AB) x.querySelector('.tr').classList.add('zu');
+    if (sd < BS.TALENT_AB) x.querySelector('.ta').classList.add('zu');
+    if (sd < BS.MAX_STUFE) {
+      var kosten = BS.STUFE_KOSTEN[sd];
+      var up = document.createElement('button'); up.type = 'button'; up.className = 'knopf gelb upgrade';
+      up.textContent = 'Auf Stufe ' + (sd + 1) + ' · ' + kosten + ' 🪙'; up.disabled = muenzen < kosten;
+      up.addEventListener('click', function () {
+        if (muenzen < kosten) return;
+        muenzen -= kosten; stufen[d.id] = sd + 1; speichern();
+        Pixel.sfx.tone(660, 0.08, 'square', 0.06); Pixel.sfx.tone(990, 0.14, 'square', 0.06, null, 0.08);
+        if (online) Netz.senden({ t: 'wahl', kaempfer: wahl, stufe: stufe(wahl) });
+        aufbauen();
+      });
+      x.appendChild(up);
+    } else x.appendChild(el('p', 'ab', '⭐ Höchste Stufe erreicht!'));
+    t.appendChild(x);
     info.appendChild(t);
 
     modi.innerHTML = '';
@@ -125,7 +159,7 @@
       c.width = img.width; c.height = img.height; c.className = 'px'; c.getContext('2d').drawImage(img, 0, 0);
       li.appendChild(c);
       li.appendChild(el('span', '', (sp.id === online.host ? '👑 ' : '') + sp.name + (sp.id === Netz.ich ? ' (du)' : '')));
-      li.appendChild(el('span', '', '· ' + d.name));
+      li.appendChild(el('span', '', '· ' + d.name + ' (St. ' + (sp.stufe || 1) + ')'));
       if (teamModus) li.appendChild(el('span', 'tm t' + (i % 2), i % 2 ? 'Rot' : 'Blau'));
       ul.appendChild(li);
     });
@@ -139,7 +173,7 @@
   function verbinden(nachricht) {
     if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; onlineAufbauen(); return; }
     onlineStatus = 'Verbinde … (der Server kann kurz zum Aufwachen brauchen)'; onlineAufbauen();
-    nachricht.name = meinName; nachricht.kaempfer = wahl;
+    nachricht.name = meinName; nachricht.kaempfer = wahl; nachricht.stufe = stufe(wahl);
     Netz.verbinden().then(function () { onlineStatus = ''; Netz.senden(nachricht); },
       function () { onlineStatus = 'Keine Verbindung zum Server. Nochmal versuchen?'; onlineAufbauen(); });
   }
@@ -174,7 +208,7 @@
     if (online) { if (istHost()) Netz.senden({ t: 'start' }); return; }
     Pixel.sfx.tone(523, 0.08, 'square', 0.06); Pixel.sfx.tone(784, 0.12, 'square', 0.06, null, 0.08);
     menue.hidden = true; ergebnis.hidden = true;
-    var start = function () { BS.starten({ kaempfer: wahl, modus: modus }, zeigeErgebnis); };
+    var start = function () { BS.starten({ kaempfer: wahl, modus: modus, stufe: stufe(wahl) }, zeigeErgebnis); };
     if (document.fonts && document.fonts.load) document.fonts.load('10px "Press Start 2P"').then(start, start); else start();
   }
 
@@ -192,9 +226,21 @@
     } else if (e.ergebnis === 'sieg') { delta = 8; titel = 'Sieg!'; unter = 'Bravo! Das Team hat abgeräumt.'; siege++; }
     else if (e.ergebnis === 'niederlage') { delta = -4; titel = 'Niederlage'; unter = 'Die anderen waren diesmal besser.'; }
     else { delta = 0; titel = 'Unentschieden'; unter = 'Gleichstand – keiner bekommt was.'; }
-    var vorher = pokale[wahl] || 0;
+    var vorher = pokale[wahl] || 0, gesamtVorher = gesamt();
     pokale[wahl] = Math.max(0, vorher + delta);
     delta = pokale[wahl] - vorher;   // bei 0 Pokalen kann man nichts verlieren
+    // Münzen: nach Ergebnis, Platz und K.o.s; Tagessieg und Pokal-Meilensteine geben Extra-Münzen
+    var gewinn = 0, extra = [];
+    if (e.ergebnis !== 'abbruch') {
+      if (modus === 'royale') gewinn = [0, 40, 32, 26, 20, 15, 12, 10, 8][e.platz || 8] || 8;
+      else gewinn = e.ergebnis === 'sieg' ? 30 : e.ergebnis === 'unentschieden' ? 18 : 10;
+      gewinn += Math.min(10, (e.kos || 0) * 2);
+      var heute = new Date().toISOString().slice(0, 10);
+      if ((e.ergebnis === 'sieg') && Pixel.get(K_TAG, '') !== heute) { Pixel.set(K_TAG, heute); gewinn += 50; extra.push('Erster Sieg heute: +50 🪙'); }
+      var meilenstein = Math.floor(gesamt() / 100) - Math.floor(gesamtVorher / 100);
+      if (meilenstein > 0) { gewinn += 150 * meilenstein; extra.push('Pokal-Meilenstein ' + Math.floor(gesamt() / 100) * 100 + ' 🏆: +' + 150 * meilenstein + ' 🪙'); }
+      muenzen += gewinn;
+    }
     speichern();
     var d = BS.kaempfer(wahl);
     ergebnis.innerHTML = '';
@@ -208,7 +254,14 @@
     box.appendChild(s);
     var pk = document.createElement('p'); pk.className = 'pokdelta';
     pk.textContent = '🏆 ' + d.name + ': ' + vorher + ' → ' + pokale[wahl] + ' (' + (delta > 0 ? '+' : '') + delta + ')';
-    if (e.ergebnis !== 'abbruch') box.appendChild(pk);
+    if (e.ergebnis !== 'abbruch') {
+      box.appendChild(pk);
+      var mz = document.createElement('p'); mz.className = 'pokdelta muenz'; mz.textContent = '🪙 +' + gewinn + ' Münzen (jetzt ' + muenzen + ')';
+      box.appendChild(mz);
+      extra.forEach(function (t) { box.appendChild(el('p', 'stat bonus', t)); });
+      var sd = stufe(wahl);
+      if (sd < BS.MAX_STUFE && muenzen >= BS.STUFE_KOSTEN[sd]) box.appendChild(el('p', 'stat bonus', 'Du kannst ' + d.name + ' im Menü auf Stufe ' + (sd + 1) + ' bringen!'));
+    }
     var k = document.createElement('div'); k.className = 'knoepfe';
     var nochmal = document.createElement('button'); nochmal.type = 'button'; nochmal.className = 'knopf gelb'; nochmal.textContent = online ? 'Nochmal (alle)' : 'Nochmal';
     var zur = document.createElement('button'); zur.type = 'button'; zur.className = 'knopf'; zur.textContent = online ? 'Zur Lobby' : 'Zum Menü';

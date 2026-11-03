@@ -18,8 +18,16 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 | Modus | Regeln |
 |---|---|
 | Sternenregen | 3 gegen 3, Sterne aus der Mitte sammeln; 10 Sterne 15 Sekunden halten gewinnt |
+| Pausenball | 3 gegen 3, Ball ins gegnerische Tor schießen; zwei Tore gewinnen |
+| Hügelkönig | 3 gegen 3, die Zone in der Mitte halten, bis die Leiste 100 % hat |
 | Pausenhof-Royale | Jeder gegen jeden (8), Kisten knacken für Energie, Kreidestaub zieht sich zusammen |
 | Klassenkeile | 3 gegen 3, das erste Team mit 10 K.o.s gewinnt |
+
+## Fortschritt
+
+Nach jeder Runde gibt es Münzen (mehr für Siege, K.o.s, den ersten Sieg am Tag und alle 100 Pokale).
+Damit steigt jeder Kämpfer bis Stufe 9 (+7 % Leben und Schaden pro Stufe).
+Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ein **Talent** (passiv).
 
 ## Kämpfer
 
@@ -32,7 +40,8 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 | Omar | Kamelspucke, bremst | Sandsturm |
 | Felix | Biss, heilt | Großer Hunger – riesig, isst Wände |
 | Julian | Kolben über Wände werfen | Natrium! – sprengt Wände |
-| Damon & Moritz | Zwei Teller | Chaos-Dinner – Teller in alle Richtungen |
+| Damon | 3 Noten (Power-Chord) | Moshpit – Schaden und Wegschubsen rundherum |
+| Moritz | Zwei Herzen | Herzensbrecher – Getroffene laufen verliebt auf ihn zu |
 | Ecki | Schnelle Schläge | Klo-Sprint – Ansturm + Kamillentee |
 | Philipp | Abprallende Bücher | „Digga, ich lern nie“ – unverwundbar, schneller laden |
 | Saro | Gold-Schrot | Aura-Mog – betäubt alle in der Nähe |

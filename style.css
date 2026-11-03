@@ -140,3 +140,15 @@ header p { margin: 14px auto 0; max-width: 560px; font-size: 18px; opacity: .8; 
 .modus.zu { cursor: default; opacity: .55; }
 .modus.zu.an { opacity: 1; }
 .knopf:disabled { opacity: .55; cursor: default; }
+
+/* ---------- Stufen, Tricks, Talente ---------- */
+.karte .stufe { position: absolute; top: 4px; left: 4px; font-family: var(--pixel); font-size: 8px; background: rgba(0, 0, 0, .55); padding: 3px 4px; }
+.extras { margin-top: 8px; padding-top: 8px; border-top: 2px dashed rgba(255, 255, 255, .2); }
+.extras .zu { opacity: .55; }
+.upgrade { margin-top: 10px; font-size: 11px; padding: 10px 12px; }
+.trickanz { position: fixed; left: calc(50% + min(210px, 40vw) + 10px); bottom: calc(18px + env(safe-area-inset-bottom)); font-family: var(--pixel); font-size: 9px;
+  background: rgba(0, 0, 0, .55); border: 3px solid #000; padding: 6px 8px; color: rgba(255, 255, 255, .6); }
+.trickanz.bereit { color: #0a3a18; background: var(--gruen); }
+.ebox .bonus { color: var(--gruen); opacity: 1; }
+.ebox .muenz { margin-top: -4px; }
+@media (max-width: 900px) { .trickanz { left: auto; right: 12px; bottom: calc(52px + env(safe-area-inset-bottom)); } }

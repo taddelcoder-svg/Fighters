@@ -88,7 +88,7 @@ const raeume = new Map();
 const MAX_SPIELER = 8;
 
 function neuerClient(sock) {
-  const c = { id: naechsteId++, sock, name: 'Spieler', kaempfer: 'matteo', raum: null, lebt: true, offen: true };
+  const c = { id: naechsteId++, sock, name: 'Spieler', kaempfer: 'matteo', stufe: 1, raum: null, lebt: true, offen: true };
   clients.add(c);
   return c;
 }
@@ -96,6 +96,7 @@ function senden(c, o) {
   if (!c.offen) return;
   try { c.sock.write(rahmen(1, Buffer.from(JSON.stringify(o)))); } catch (e) {}
 }
+function stufeVon(v) { v = Math.round(+v || 1); return v < 1 ? 1 : v > 9 ? 9 : v; }
 function sauber(t, n) { return String(t || '').replace(/[<>]/g, '').trim().slice(0, n) || 'Spieler'; }
 function code() {
   const z = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -103,7 +104,7 @@ function code() {
 }
 function lobby(r) {
   const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft,
-    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer })) };
+    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe })) };
   r.spieler.forEach((c) => senden(c, o));
 }
 function verlassen(c) {
@@ -130,7 +131,7 @@ function nachricht(c, o) {
   switch (o.t) {
     case 'erstellen': {
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe);
       const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false };
       raeume.set(neu.code, neu); c.raum = neu;
       senden(c, { t: 'du', id: c.id });
@@ -143,20 +144,20 @@ function nachricht(c, o) {
       if (ziel.laeuft) return senden(c, { t: 'fehler', text: 'Dort läuft gerade eine Runde – gleich nochmal versuchen.' });
       if (ziel.spieler.length >= MAX_SPIELER) return senden(c, { t: 'fehler', text: 'Der Raum ist voll.' });
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe);
       ziel.spieler.push(c); c.raum = ziel;
       senden(c, { t: 'du', id: c.id });
       lobby(ziel);
       break;
     }
     case 'verlassen': verlassen(c); break;
-    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); lobby(r); } break;
+    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
     case 'start': {
       if (!r || r.host !== c || r.laeuft) return;
       if (r.modus !== 'royale' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
       r.laeuft = true;
-      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, team: i % 2 }));
+      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, team: i % 2 }));
       r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id }));
       lobby(r);
       break;

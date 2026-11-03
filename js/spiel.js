@@ -2,6 +2,7 @@
 // BS.starten(optionen, fertig) startet eine Runde im #spiel-Container; fertig(ergebnis) kommt am Ende.
 (function () {
   var T = 40;                       // Feldgröße in Pixeln
+  var SH = 6;                       // Schusshöhe über dem Boden (klein = Schüsse fliegen auf Höhe der Ziellinie)
   var REGEN_PAUSE = 3, REGEN_PRO_S = 0.13;
   var TEAMFARBE = ['#3fa2ff', '#ff4d5a'];
   var sfx = Pixel.sfx;
@@ -94,10 +95,16 @@
 
     // ---------- Kämpfer ----------
     var kaempfer = [];
-    function neuerKaempfer(def, tm, istSpieler) {
+    function neuerKaempfer(def, tm, istSpieler, stufe) {
+      stufe = klemm(Math.round(stufe || 1), 1, BS.MAX_STUFE);
+      var tal = stufe >= BS.TALENT_AB ? (def.talent || {}) : {}, f = 1 + (stufe - 1) * 0.07;
+      var hp0 = Math.round(def.hp * f * (tal.hp || 1));
       var k = {
         def: def, team: tm, spieler: istSpieler, x: 0, y: 0, r: def.radius || 16,
-        hp: def.hp, maxHp: def.hp, munition: 3, ladeT: 0, superLadung: 0, superBereit: false,
+        stufe: stufe, dmgF: f * (tal.schaden || 1), tempoF: tal.tempo || 1, ladeF: tal.laden || 1, superF: tal.superF || 1,
+        regenPause: REGEN_PAUSE * (tal.regenPause || 1), regenTempo: tal.regenTempo || 1, biss: tal.biss || 0,
+        tricks: stufe >= BS.TRICK_AB ? 3 : 0, trickT: 0, verliebt: 0, verliebtZu: null,
+        hp: hp0, maxHp: hp0, munition: 3, ladeT: 0, superLadung: 0, superBereit: false,
         blick: tm === 0 ? -Math.PI / 2 : Math.PI / 2, lauf: 0, bewegt: false,
         betaeubt: 0, gebremst: 0, schild: 0, unsichtbar: 0, gross: 0, turbo: 0, doppelt: false,
         dash: null, stoss: null, zuletztAktiv: -9, zuletztGetroffen: -9, salve: [],
@@ -108,22 +115,24 @@
       return k;
     }
 
+    function botStufe(s) { return klemm(Math.round((s || 1) + rnd(-1.2, 0.8)), 1, BS.MAX_STUFE); }
     function neueKi() { return { ziel: null, denk: rnd(0, 0.3), schussT: rnd(0.4, 0.9), seite: Math.random() < 0.5 ? -1 : 1, seiteT: 0 }; }
 
     var spieler, gegnerPool = mischen(BS.KAEMPFER.filter(function (d) { return d.id !== opt.kaempfer; }));
     var spawns = [];
     if (gast) {
       netz.init.k.forEach(function (z) {
-        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich);
+        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich, z[4]);
         k.ki = null; k.name = z[2]; k.mensch = z[3];
         if (z[3] === netz.ich) spieler = k;
       });
     } else if (host) {
       var benutzt = netz.spieler.map(function (m) { return m.kaempfer; });
       var botPool = mischen(BS.KAEMPFER.filter(function (d) { return benutzt.indexOf(d.id) < 0; })).concat(mischen(BS.KAEMPFER.slice()));
-      var bi = 0;
+      var bi = 0, schnitt = 0;
+      netz.spieler.forEach(function (m) { schnitt += (m.stufe || 1) / netz.spieler.length; });
       var mensch = function (m, tm) {
-        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich);
+        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich, m.stufe);
         k.name = m.name; k.mensch = m.id;
         if (m.id === netz.ich) spieler = k; else { k.ki = null; k.eingabe = { mx: 0, my: 0, b: 0 }; }
       };
@@ -131,20 +140,20 @@
         [0, 1].forEach(function (tm) {
           var drin = netz.spieler.filter(function (m) { return m.team === tm; });
           drin.forEach(function (m) { mensch(m, tm); });
-          for (var i = drin.length; i < 3; i++) neuerKaempfer(botPool[bi++], tm, false);
+          for (var i = drin.length; i < 3; i++) neuerKaempfer(botPool[bi++], tm, false, botStufe(schnitt));
         });
       } else {
         netz.spieler.forEach(function (m, i) { mensch(m, i); });
-        for (var i3 = netz.spieler.length; i3 < 8; i3++) neuerKaempfer(botPool[bi++], i3, false);
+        for (var i3 = netz.spieler.length; i3 < 8; i3++) neuerKaempfer(botPool[bi++], i3, false, botStufe(schnitt));
       }
     } else if (team) {
-      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true);
-      neuerKaempfer(gegnerPool[0], 0, false);
-      neuerKaempfer(gegnerPool[1], 0, false);
-      for (var g = 2; g < 5; g++) neuerKaempfer(gegnerPool[g], 1, false);
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe);
+      neuerKaempfer(gegnerPool[0], 0, false, botStufe(opt.stufe));
+      neuerKaempfer(gegnerPool[1], 0, false, botStufe(opt.stufe));
+      for (var g = 2; g < 5; g++) neuerKaempfer(gegnerPool[g], 1, false, botStufe(opt.stufe));
     } else {
-      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true);
-      for (var g2 = 0; g2 < 7; g2++) neuerKaempfer(gegnerPool[g2 % gegnerPool.length], g2 + 1, false);
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe);
+      for (var g2 = 0; g2 < 7; g2++) neuerKaempfer(gegnerPool[g2 % gegnerPool.length], g2 + 1, false, botStufe(opt.stufe));
     }
     function freiesFeld(tx, ty) {
       for (var rad = 0; rad < 6; rad++) for (var dy = -rad; dy <= rad; dy++) for (var dx = -rad; dx <= rad; dx++) {
@@ -162,7 +171,7 @@
       return freiesFeld(Math.round(B / 2 - 0.5 + Math.cos(w) * (B / 2 - 3)), Math.round(H / 2 - 0.5 + Math.sin(w) * (H / 2 - 3)));
     }
     kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); });
-    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0]; }) } });
+    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe]; }) } });
 
     // ---------- Wege für die Bots (Breitensuche auf dem Raster) ----------
     var wegeNeu = false, wegCache = {};
@@ -263,12 +272,13 @@
       if (ziel.tot || ziel.schild > 0 || (ziel.dash && ziel.dash.unverwundbar)) return 0;
       if (von && von.doppelt) { menge *= 2; von.doppelt = false; }
       if (von && von.energie) menge *= 1 + von.energie * 0.1;
+      if (von && von.dmgF) menge *= von.dmgF;
       if (von && von.gross > 0) menge *= 1.6;
       menge = Math.round(menge);
       ziel.hp -= menge; ziel.zuletztGetroffen = zeit;
       if (ziel.unsichtbar > 0) ziel.unsichtbar = 0;
       zahl({ x: ziel.x + rnd(-8, 8), y: ziel.y - 40, t: 0, text: String(menge), farbe: ziel === spieler ? '#ff6a6a' : '#fff' });
-      if (von && !ohneLadung && von.team !== ziel.team) { von.superLadung = Math.min(von.def.superKosten, von.superLadung + menge); }
+      if (von && !ohneLadung && von.team !== ziel.team) { von.superLadung = Math.min(von.def.superKosten, von.superLadung + menge / (von.dmgF || 1) * (von.superF || 1)); }
       if (ziel === spieler) wackeln = Math.min(10, wackeln + 4);
       if (ziel.hp <= 0) sterben(ziel, von);
       return menge;
@@ -295,7 +305,9 @@
     function zielPunkt(k, w, dist) { return { x: k.x + Math.cos(w) * dist, y: k.y + Math.sin(w) * dist }; }
 
     function angreifen(k, w, dist) {
-      if (k.tot || k.betaeubt > 0 || k.munition < 1 || k.dash) return false;
+      if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.dash) return false;
+      if (ball && ball.traeger === k) return ballSchiessen(k, w, dist);
+      if (k.munition < 1) return false;
       var a = k.def.angriff;
       k.munition -= 1; k.blick = w; k.zuletztAktiv = zeit;
       if (k.unsichtbar > 0) k.unsichtbar = 0;
@@ -316,14 +328,14 @@
         projektile.push({ wurf: true, sx: k.x, sy: k.y - 16, tx: z.x, ty: z.y, t: 0, T: a.flugzeit, owner: k, team: k.team, schaden: a.schaden, flaeche: a.flaeche * T, look: a.look });
         sfx.tone(400, 0.12, 'triangle', 0.05, 700);
       } else if (a.art === 'nah') {
-        nahkampf(k, w, a.reichweite * T, a.breite, a.schaden, a.heilt);
+        nahkampf(k, w, a.reichweite * T, a.breite, a.schaden, k.biss || a.heilt);
         sfx.noise(0.08, 0.15, 900);
       }
       return true;
     }
     function schiessen(k, w, ox, oy) {
       var a = k.def.angriff;
-      projektile.push({ x: k.x + (ox || 0) + Math.cos(w) * 14, y: k.y - 14 + (oy || 0) + Math.sin(w) * 14, vx: Math.cos(w) * a.tempo, vy: Math.sin(w) * a.tempo,
+      projektile.push({ x: k.x + (ox || 0) + Math.cos(w) * 14, y: k.y - SH + (oy || 0) + Math.sin(w) * 14, vx: Math.cos(w) * a.tempo, vy: Math.sin(w) * a.tempo,
         weg: 0, max: a.reichweite * T, schaden: a.schaden, r: a.radius, owner: k, team: k.team, look: a.look,
         durch: !!a.durch, getroffen: [], abprall: a.abprall || 0, bremst: a.bremst || 0, w: w });
     }
@@ -374,7 +386,7 @@
 
     // ---------- Supers ----------
     function superZuenden(k, w, dist) {
-      if (k.tot || k.betaeubt > 0 || k.superLadung < k.def.superKosten || k.dash) return false;
+      if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.superLadung < k.def.superKosten || k.dash) return false;
       k.superLadung = 0; k.blick = w; k.zuletztAktiv = zeit;
       var maxD = (k.def.superReichweite || 0) * T, d = klemm(dist === undefined ? maxD : dist, T, Math.max(T, maxD)), z = zielPunkt(k, w, d);
       sfx.tone(660, 0.1, 'square', 0.07); sfx.tone(990, 0.18, 'square', 0.06, null, 0.08);
@@ -388,7 +400,7 @@
           sfx.noise(0.5, 0.18, 500);
           break;
         case 'klau':
-          projektile.push({ x: k.x, y: k.y - 14, vx: Math.cos(w) * 760, vy: Math.sin(w) * 760, weg: 0, max: maxD, schaden: 30, r: 12, owner: k, team: k.team, look: 'hals', getroffen: [], klau: true, w: w });
+          projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(w) * 760, vy: Math.sin(w) * 760, weg: 0, max: maxD, schaden: 30, r: 12, owner: k, team: k.team, look: 'hals', getroffen: [], klau: true, w: w });
           break;
         case 'unsichtbar':
           k.unsichtbar = 4; k.turbo = 4; k.doppelt = true;
@@ -405,8 +417,15 @@
         case 'dinner':
           for (var i = 0; i < 14; i++) {
             var ww = w + i / 14 * Math.PI * 2;
-            projektile.push({ x: k.x, y: k.y - 14, vx: Math.cos(ww) * 520, vy: Math.sin(ww) * 520, weg: 0, max: 6 * T, schaden: 22, r: 9, owner: k, team: k.team, look: 'teller', getroffen: [], w: ww });
+            projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(ww) * 520, vy: Math.sin(ww) * 520, weg: 0, max: 6 * T, schaden: 22, r: 9, owner: k, team: k.team, look: 'teller', getroffen: [], w: ww });
           }
+          break;
+        case 'moshpit':
+          flaechen.push({ x: k.x, y: k.y, r: 2.2 * T, t: 0, d: 3, dps: 26, stoss: 260, folgt: k, owner: k, team: k.team, look: 'mosh', tick: 0 });
+          wackeln = Math.max(wackeln, 3);
+          break;
+        case 'charme':
+          projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(w) * 650, vy: Math.sin(w) * 650, weg: 0, max: maxD, schaden: 25, r: 13, owner: k, team: k.team, look: 'grossherz', getroffen: [], charme: 2, w: w });
           break;
         case 'klosprint':
           var sd = Math.min(d, maxD);
@@ -428,13 +447,97 @@
     }
 
     // ---------- Modus-Zustand ----------
-    var zeit = 0, ende = null, dauer = modus === 'sterne' ? 150 : modus === 'kloppe' ? 120 : 9999;
+    var zeit = 0, ende = null, dauer = modus === 'sterne' || modus === 'ball' || modus === 'huegel' ? 150 : modus === 'kloppe' ? 120 : 9999;
+    var ball = modus === 'ball' ? { x: 0, y: 0, vx: 0, vy: 0, traeger: null, sperre: 0, kicker: null } : null;
+    var tore = [0, 0], torAnsage = 0, torTeam = 0, TOR_X0 = 8 * T, TOR_X1 = 13 * T;
+    var huegel = [0, 0], huegelHalter = -1, ZONE_R = 2.6 * T;
     var sternT = 3, sternCountdown = null, sternTeam = -1, teamKos = [0, 0];
     var gas = { r: Math.hypot(W, HH) / 2 + T, ziel: T * 3, start: 20, dauer: 100 };
 
     function teamSterne(tm) { var s = 0; kaempfer.forEach(function (k) { if (k.team === tm && !k.tot) s += k.sterne; }); return s; }
 
+    function ballSchiessen(k, w, dist) {
+      var kraft = klemm((dist || 6 * T) / (7 * T), 0.35, 1) * 820 + 160;
+      ball.traeger = null; ball.kicker = k; ball.sperre = 0.35;
+      ball.vx = Math.cos(w) * kraft; ball.vy = Math.sin(w) * kraft;
+      k.blick = w; k.zuletztAktiv = zeit;
+      sfx.noise(0.08, 0.2, 1400); sfx.tone(180, 0.08, 'square', 0.05, 90);
+      return true;
+    }
+    function ballZurueck() {
+      ball.x = W / 2; ball.y = HH / 2; ball.vx = ball.vy = 0; ball.traeger = null; ball.sperre = 0; ball.kicker = null;
+    }
+    function ballSchritt(dt) {
+      var b = ball;
+      if (b.traeger) {
+        var t = b.traeger;
+        if (t.tot || t.betaeubt > 0 || t.verliebt > 0) { b.traeger = null; b.kicker = t; b.sperre = 0.6; b.vx = rnd(-90, 90); b.vy = rnd(-90, 90); }
+        else { b.x = t.x + Math.cos(t.blick) * 16; b.y = t.y + 2 + Math.sin(t.blick) * 10; b.vx = b.vy = 0; }
+      }
+      if (!b.traeger) {
+        b.sperre -= dt;
+        var nx = b.x + b.vx * dt, ny = b.y + b.vy * dt, imTor = nx > TOR_X0 && nx < TOR_X1;
+        if (blockiertSchuss(fPx(nx, b.y)) || nx < 8 || nx > W - 8) b.vx = -b.vx * 0.7; else b.x = nx;
+        if ((ny > 0 && ny < HH && blockiertSchuss(fPx(b.x, ny))) || (!imTor && (ny < 8 || ny > HH - 8))) b.vy = -b.vy * 0.7; else b.y = ny;
+        var reib = Math.pow(0.3, dt); b.vx *= reib; b.vy *= reib;
+        for (var i = 0; i < kaempfer.length; i++) {
+          var k = kaempfer[i];
+          if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || (b.sperre > 0 && k === b.kicker)) continue;
+          if (Math.hypot(k.x - b.x, k.y - b.y) < k.r + 14) { b.traeger = k; if (k === spieler) sfx.tone(700, 0.05, 'square', 0.04); break; }
+        }
+      }
+      if (b.x > TOR_X0 && b.x < TOR_X1 && (b.y < T * 0.45 || b.y > HH - T * 0.45)) {
+        var tm = b.y < T * 0.45 ? 0 : 1;
+        tore[tm]++; torAnsage = 2.2; torTeam = tm;
+        fx({ art: 'ring', x: b.x, y: b.y, r: 3 * T, t: 0, d: 0.6, farbe: '#fff' });
+        sfx.tone(523, 0.12, 'square', 0.07); sfx.tone(784, 0.25, 'square', 0.07, null, 0.12);
+        if (tore[tm] >= 2) return abschluss(tm);
+        kaempfer.forEach(function (k) {
+          var sp = spawnPunkt(k); k.x = sp.x; k.y = sp.y; k.dash = null; k.stoss = null; k.verliebt = 0;
+          if (k.tot) { k.tot = false; k.hp = k.maxHp; k.munition = 3; }
+        });
+        ballZurueck();
+      }
+    }
+
+    // ---------- Tricks ----------
+    function trickAusloesen(k, w, d) {
+      if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.tricks <= 0 || k.trickT > 0 || k.dash) return false;
+      k.tricks--; k.trickT = 4; k.zuletztAktiv = zeit;
+      fx({ art: 'ring', x: k.x, y: k.y, r: 30, t: 0, d: 0.3, farbe: '#6ef08a' });
+      sfx.tone(520, 0.06, 'triangle', 0.06, 1040);
+      if (k === spieler || k.mensch) zahl({ x: k.x, y: k.y - 64, t: -0.3, text: k.def.trickName.toUpperCase(), farbe: '#9affb0' });
+      switch (k.def.trick) {
+        case 'nachladen': k.munition = 3; k.ladeT = 0; break;
+        case 'ring': heilen(k, k.maxHp * 0.35); break;
+        case 'borschtsch': heilen(k, k.maxHp * 0.4); break;
+        case 'flasche': heilen(k, k.maxHp * 0.25); k.turbo = 2; break;
+        case 'klopapier': k.turbo = 3; break;
+        case 'spickzettel': k.doppelt = true; break;
+        case 'rueckzug': k.dash = { vx: -Math.cos(w) * 700, vy: -Math.sin(w) * 700, t: 0.17, getroffen: [], schaden: 0, stoss: 0, unverwundbar: true, look: 'sprint' }; break;
+        case 'sprung': k.dash = { vx: Math.cos(w) * 900, vy: Math.sin(w) * 900, t: 0.13, getroffen: [], schaden: 0, stoss: 0, unverwundbar: true, look: 'sprint' }; break;
+        case 'rauch': flaechen.push({ x: k.x, y: k.y, r: 2.2 * T, t: 0, d: 3, dps: 0, bremst: true, owner: k, team: k.team, look: 'rauch', tick: 0 }); break;
+        case 'stagedive':
+          var sd = klemm(d || 4 * T, T, 4 * T);
+          k.dash = { vx: Math.cos(w) * 800, vy: Math.sin(w) * 800, t: sd / 800, getroffen: [], schaden: 0, stoss: 0, unverwundbar: true, look: 'sprint',
+            ende: function () { flaechenSchaden(k, k.x, k.y, 1.4 * T, 20, { stoss: 320 }); fx({ art: 'ring', x: k.x, y: k.y, r: 1.4 * T, t: 0, d: 0.3, farbe: '#c81e2a' }); } };
+          break;
+        case 'strauss':
+          kaempfer.forEach(function (o) { if (o.team === k.team && !o.tot && abst(o, k) < 3 * T) heilen(o, 30); });
+          fx({ art: 'ring', x: k.x, y: k.y, r: 3 * T, t: 0, d: 0.4, farbe: '#ff8ab0' });
+          break;
+        case 'goldregen':
+          for (var i = 0; i < 10; i++) {
+            var ww = i / 10 * Math.PI * 2;
+            projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(ww) * 560, vy: Math.sin(ww) * 560, weg: 0, max: 4 * T, schaden: 13, r: 7, owner: k, team: k.team, look: 'gold', getroffen: [], w: ww });
+          }
+          break;
+      }
+      return true;
+    }
+
     function modusSchritt(dt) {
+      if (ball) { if (!ball.da) { ball.da = true; ballZurueck(); } if (torAnsage > 0) torAnsage -= dt; }
       if (modus === 'sterne') {
         sternT -= dt;
         var imSpiel = sterne.length + teamSterne(0) + teamSterne(1);
@@ -452,6 +555,19 @@
           if (sternCountdown <= 0) return abschluss(fuehrt);
         }
         if (zeit >= dauer) return abschluss(a > b ? 0 : a < b ? 1 : -1);
+      } else if (modus === 'ball') {
+        ballSchritt(dt);
+        if (ende) return;
+        if (zeit >= dauer) return abschluss(tore[0] > tore[1] ? 0 : tore[0] < tore[1] ? 1 : -1);
+      } else if (modus === 'huegel') {
+        var drin = [0, 0];
+        kaempfer.forEach(function (k) { if (!k.tot && Math.hypot(k.x - W / 2, k.y - HH / 2) < ZONE_R) drin[k.team]++; });
+        huegelHalter = drin[0] && !drin[1] ? 0 : drin[1] && !drin[0] ? 1 : drin[0] ? -2 : -1;
+        if (huegelHalter >= 0) {
+          huegel[huegelHalter] = Math.min(100, huegel[huegelHalter] + dt * 1.5);
+          if (huegel[huegelHalter] >= 100) return abschluss(huegelHalter);
+        }
+        if (zeit >= dauer) return abschluss(huegel[0] > huegel[1] ? 0 : huegel[0] < huegel[1] ? 1 : -1);
       } else if (modus === 'kloppe') {
         if (teamKos[0] >= 10) return abschluss(0);
         if (teamKos[1] >= 10) return abschluss(1);
@@ -523,7 +639,20 @@
         }
       } else if (modus === 'kloppe' && !z) wohin = { x: W / 2 + Math.sin(zeit * 0.3 + kaempfer.indexOf(k)) * T * 4, y: HH / 2 };
 
-      if (schwach && z && d < T * 6 && modus !== 'royale') wohin = spawnPunkt(k);
+      if (modus === 'ball') {
+        var torY = k.team === 0 ? T * 0.2 : HH - T * 0.2;
+        if (ball.traeger === k) {
+          var dTor = Math.hypot(W / 2 - k.x, torY - k.y);
+          if (dTor < T * 6.5 && sichtfrei(k.x, k.y, W / 2, torY) && ki.schussT <= 0) { ki.schussT = 0.6; ballSchiessen(k, Math.atan2(torY - k.y, W / 2 - k.x) + rnd(-0.12, 0.12), dTor); }
+          wohin = { x: W / 2, y: torY };
+        } else if (!ball.traeger) { if (!z || abst(k, ball) < d + T * 2) wohin = ball; }
+        else if (ball.traeger.team !== k.team) { if (sichtbarFuer(ball.traeger, k.team)) { z = ki.ziel = ball.traeger; d = abst(k, z); } }
+        else if (!z) wohin = { x: ball.x, y: ball.y + (k.team === 0 ? T * 2.5 : -T * 2.5) };
+      } else if (modus === 'huegel') {
+        var dz = Math.hypot(k.x - W / 2, k.y - HH / 2);
+        if ((!z || d > T * 5) && dz > ZONE_R * 0.5) wohin = { x: W / 2 + Math.cos(kaempfer.indexOf(k)) * T, y: HH / 2 + Math.sin(kaempfer.indexOf(k)) * T };
+      }
+      if (schwach && z && d < T * 6 && modus !== 'royale' && !(ball && ball.traeger === k)) wohin = spawnPunkt(k);
 
       var mx = 0, my = 0;
       if (wohin) {
@@ -542,20 +671,25 @@
       // schießen
       ki.schussT -= dt;
       if (z) {
-        var frei2 = a.art === 'wurf' || sichtfrei(k.x, k.y - 14, z.x, z.y - 14);
+        var frei2 = a.art === 'wurf' || sichtfrei(k.x, k.y, z.x, z.y);
         // Vorhalt: wohin der Gegner gleich läuft
         var flug = a.art === 'wurf' ? a.flugzeit : d / (a.tempo || 1000);
         var px = z.x + (z.vx || 0) * flug * 0.7, py = z.y + (z.vy || 0) * flug * 0.7;
         var zielW = Math.atan2(py - k.y, px - k.x) + rnd(-0.12, 0.12);
-        if (frei2 && d < reich * 0.95 + z.r && ki.schussT <= 0 && k.munition >= 1) {
+        var mitBall = ball && ball.traeger === k;
+        if (k.tricks > 0 && k.trickT <= 0 && d < reich * 1.2 && Math.random() < dt * 0.6) {
+          var heil = ['ring', 'flasche', 'borschtsch', 'strauss'].indexOf(k.def.trick) >= 0;
+          if (!heil || k.hp < k.maxHp * 0.5) trickAusloesen(k, k.def.trick === 'rueckzug' ? zielW : zielW, d);
+        }
+        if (!mitBall && frei2 && d < reich * 0.95 + z.r && ki.schussT <= 0 && k.munition >= 1) {
           ki.schussT = rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0);
           angreifen(k, zielW, Math.hypot(px - k.x, py - k.y));
         }
         if (k.superLadung >= k.def.superKosten && ki.schussT < 0.3) {
           var sa = k.def.superArt, sr = (k.def.superReichweite || 0) * T;
-          var ok = (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
+          var ok = (sa === 'moshpit' && d < T * 2.5) || (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
             (sa === 'lernnie' && k.hp < k.maxHp * 0.6 && d < reich) || (sa === 'unsichtbar' && d < T * 7) ||
-            (sr && d < sr && (sa === 'veto' || sa === 'natrium' || sa === 'sandsturm' || frei2));
+            (sr && d < sr && (sa === 'charme' && frei2 || sa === 'veto' || sa === 'natrium' || sa === 'sandsturm' || frei2));
           if (ok) superZuenden(k, zielW, Math.hypot(px - k.x, py - k.y));
         }
       }
@@ -566,17 +700,18 @@
     var tasten = {}, maus = { x: 0, y: 0, unten: false, drin: false };
     var touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
     var stickL = null, stickR = null, stickS = null;   // { id, sx, sy, x, y }
-    var superKnopf = { x: 0, y: 0, r: 46 }, angriffKnopf = { x: 0, y: 0, r: 58 };
+    var superKnopf = { x: 0, y: 0, r: 46 }, angriffKnopf = { x: 0, y: 0, r: 58 }, trickKnopf = { x: 0, y: 0, r: 30 };
     function istTaste(c) { return tasten[c]; }
     function aufTaste(e) {
       tasten[e.code] = e.type === 'keydown';
       if (e.type === 'keydown' && (e.code === 'Space' || e.code === 'KeyE')) { e.preventDefault(); spielerSuper(mausWinkel(), mausDist()); }
+      if (e.type === 'keydown' && (e.code === 'KeyQ' || e.code === 'KeyF')) { e.preventDefault(); spielerTrick(mausWinkel(), mausDist()); }
       if (e.type === 'keydown' && e.code === 'Escape') aufgeben();
     }
     addEventListener('keydown', aufTaste); addEventListener('keyup', aufTaste);
     var dpr = 1, VW = 0, VH = 0, zoom = 1, kamX = 0, kamY = 0;
     function welt(px, py) { return { x: (px - VW / 2) / zoom + kamX, y: (py - VH / 2) / zoom + kamY }; }
-    function mausWinkel() { var p = welt(maus.x, maus.y); return Math.atan2(p.y - (spieler.y - 14), p.x - spieler.x); }
+    function mausWinkel() { var p = welt(maus.x, maus.y); return Math.atan2(p.y - (spieler.y - SH), p.x - spieler.x); }
     function mausDist() { var p = welt(maus.x, maus.y); return Math.hypot(p.x - spieler.x, p.y - spieler.y); }
     cv.addEventListener('mousemove', function (e) { maus.x = e.clientX; maus.y = e.clientY; maus.drin = true; touch = false; });
     cv.addEventListener('mousedown', function (e) {
@@ -592,6 +727,7 @@
       e.preventDefault(); touch = true;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i], s = { id: t.identifier, sx: t.clientX, sy: t.clientY, x: t.clientX, y: t.clientY, t0: zeit };
+        if (spieler.tricks > 0 && nahe(t, trickKnopf)) { var az = autoZiel(false); spielerTrick(stickL ? Math.atan2(stickL.y - stickL.sy, stickL.x - stickL.sx) : az.w, az.d); continue; }
         if (!stickS && superBereit() && nahe(t, superKnopf)) { s.sx = superKnopf.x; s.sy = superKnopf.y; stickS = s; }
         else if (t.clientX < VW * 0.45 && !stickL) stickL = s;
         else if (!stickR) { if (nahe(t, angriffKnopf)) { s.sx = angriffKnopf.x; s.sy = angriffKnopf.y; } stickR = s; }
@@ -634,6 +770,11 @@
       });
       if (best && bd < reich * 1.3) return { w: Math.atan2(best.y - spieler.y, best.x - spieler.x), d: bd };
       return { w: spieler.blick, d: reich };
+    }
+    function spielerTrick(w, d) {
+      if (ende || pausiert || spieler.tricks <= 0 || spieler.trickT > 0) return;
+      if (gast) { netz.senden({ t: 'an_host', d: { a: 'trick', w: w, d: d } }); spieler.trickT = 4; return; }
+      trickAusloesen(spieler, w, d);
     }
     function superBereit() { return !spieler.tot && spieler.superLadung >= spieler.def.superKosten; }
     var gastAngriffT = 0;
@@ -692,7 +833,7 @@
         k: kaempfer.map(function (k) {
           return [r1(k.x), r1(k.y), Math.max(0, Math.ceil(k.hp)), k.maxHp, r2(k.blick), k.munition, r2(k.ladeT), Math.round(k.superLadung), k.sterne, k.energie,
             k.tot ? 1 : 0, r2(k.respawn), k.kos, r2(k.gross), r2(k.schild), r2(k.unsichtbar), r2(k.betaeubt), k.bewegt ? 1 : 0,
-            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz];
+            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt)];
         }),
         p: projektile.map(function (p) {
           return p.wurf ? [1, r1(p.sx), r1(p.sy), r1(p.tx), r1(p.ty), r2(p.t), p.T, r1(p.flaeche), p.look]
@@ -701,6 +842,8 @@
         s: sterne.map(function (o) { return [r1(o.x), r1(o.y)]; }),
         e: energie.map(function (o) { return [r1(o.x), r1(o.y)]; }),
         f: flaechen.map(function (o) { return [r1(o.x), r1(o.y), r1(o.r)]; }),
+        b: ball ? [r1(ball.x), r1(ball.y), r1(ball.vx), r1(ball.vy), ball.traeger ? kaempfer.indexOf(ball.traeger) : -1] : null, to: tore,
+        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter],
         g: r1(gas.r), tk: teamKos, sc: sternCountdown === null ? null : r2(sternCountdown), st: sternTeam, ev: ev };
       ev = [];
       netz.senden({ t: 'an_alle', d: d });
@@ -716,6 +859,7 @@
         k.munition = a[5]; k.ladeT = a[6]; k.superLadung = a[7]; k.sterne = a[8]; k.energie = a[9]; k.tot = !!a[10]; k.respawn = a[11]; k.kos = a[12];
         k.gross = a[13]; k.schild = a[14]; k.unsichtbar = a[15]; k.betaeubt = a[16]; k.bewegt = !!a[17];
         k.dash = a[18] ? { look: a[18] === 1 ? 'boot' : 'sprint' } : null; k.zuletztAktiv = zeit - a[19] / 10; k.platz = a[20];
+        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23];
       });
       projektile = d.p.map(function (a) {
         return a[0] ? { wurf: true, sx: a[1], sy: a[2], tx: a[3], ty: a[4], t: a[5], T: a[6], flaeche: a[7], look: a[8] }
@@ -724,6 +868,9 @@
       sterne = d.s.map(function (a) { return { x: a[0], y: a[1] }; });
       energie = d.e.map(function (a) { return { x: a[0], y: a[1] }; });
       flaechen = d.f.map(function (a) { return { x: a[0], y: a[1], r: a[2] }; });
+      if (ball && d.b) { ball.x = d.b[0]; ball.y = d.b[1]; ball.vx = d.b[2]; ball.vy = d.b[3]; ball.traeger = d.b[4] >= 0 ? kaempfer[d.b[4]] : null; ball.da = true; }
+      if (d.to) { if (d.to[0] + d.to[1] > tore[0] + tore[1]) { torAnsage = 2.2; torTeam = d.to[0] > tore[0] ? 0 : 1; } tore = d.to; }
+      if (d.hz) { huegel = [d.hz[0], d.hz[1]]; huegelHalter = d.hz[2]; }
       gas.r = d.g; teamKos = d.tk; sternCountdown = d.sc; sternTeam = d.st;
       d.ev.forEach(function (e) {
         if (e[0] === 'f') effekte.push(e[1]);
@@ -740,6 +887,9 @@
         if (k.bewegt) k.lauf += dt;
       });
       projektile.forEach(function (p) { if (p.wurf) p.t = Math.min(p.T, p.t + dt); else { p.x += p.vx * dt; p.y += p.vy * dt; } });
+      if (ball && !ball.traeger) { ball.x += ball.vx * dt; ball.y += ball.vy * dt; }
+      if (ball && ball.traeger) { ball.x = ball.traeger.x + Math.cos(ball.traeger.blick) * 16; ball.y = ball.traeger.y + 2 + Math.sin(ball.traeger.blick) * 10; }
+      if (torAnsage > 0) torAnsage -= dt;
       effekte.forEach(function (e) { e.t += dt; if (e.vx !== undefined) { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 400 * dt; } });
       effekte = effekte.filter(function (e) { return e.t < e.d; });
       zahlen.forEach(function (z) { z.t += dt; z.y -= 40 * dt; });
@@ -755,6 +905,7 @@
       if (host) {
         if (o.t === 'von') {
           var k = menschVon(o.id), d = o.d || {}; if (!k || !k.eingabe) return;
+          if (d.a === 'trick') { trickAusloesen(k, +d.w || 0, +d.d || 0); return; }
           if (d.a === 'e') k.eingabe = { mx: klemm(+d.mx || 0, -1, 1), my: klemm(+d.my || 0, -1, 1), b: +d.b || 0 };
           else if (d.a === 'angriff') angreifen(k, +d.w || 0, +d.d || 0);
           else if (d.a === 'super') superZuenden(k, +d.w || 0, +d.d || 0);
@@ -773,19 +924,19 @@
       zeit += dt;
       kaempfer.forEach(function (k) {
         if (k.tot) {
-          if (team) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; } }
+          if (team) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; } }
           return;
         }
-        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
         // Munition
-        var lt = k.def.laden * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
+        var lt = k.def.laden * k.ladeF * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
         if (k.munition < 3) { k.ladeT += dt; if (k.ladeT >= lt) { k.ladeT = 0; k.munition++; } } else k.ladeT = 0;
         // Salven
         for (var i = k.salve.length - 1; i >= 0; i--) { k.salve[i].t -= dt; if (k.salve[i].t <= 0) { schiessen(k, k.salve[i].w); k.salve.splice(i, 1); } }
         // Heilen nach Pause
-        if (zeit - k.zuletztGetroffen > REGEN_PAUSE && zeit - k.zuletztAktiv > REGEN_PAUSE && k.hp < k.maxHp) {
+        if (zeit - k.zuletztGetroffen > k.regenPause && zeit - k.zuletztAktiv > k.regenPause && k.hp < k.maxHp) {
           k.regenT = (k.regenT || 0) + dt;
-          if (k.regenT >= 1) { k.regenT = 0; heilen(k, k.maxHp * REGEN_PRO_S); }
+          if (k.regenT >= 1 / k.regenTempo) { k.regenT = 0; heilen(k, k.maxHp * REGEN_PRO_S); }
         } else k.regenT = 0;
 
         var ox = k.x, oy = k.y;
@@ -800,6 +951,10 @@
           if (ds.t <= 0 || (Math.hypot(k.x - ox, k.y - oy) < 0.2 * Math.hypot(ds.vx, ds.vy) * dt)) { if (ds.ende) ds.ende(); k.dash = null; }
         } else if (k.stoss) {
           bewegen(k, k.stoss.vx * dt, k.stoss.vy * dt); k.stoss.t -= dt; if (k.stoss.t <= 0) k.stoss = null;
+        } else if (k.verliebt > 0 && k.verliebtZu && !k.verliebtZu.tot) {
+          var vw = Math.atan2(k.verliebtZu.y - k.y, k.verliebtZu.x - k.x);
+          k.blick = vw;
+          if (abst(k, k.verliebtZu) > k.r * 2) bewegen(k, Math.cos(vw) * k.def.tempo * 0.5 * dt, Math.sin(vw) * k.def.tempo * 0.5 * dt);
         } else if (k.betaeubt <= 0) {
           var mx = 0, my = 0;
           if (k.spieler) {
@@ -811,7 +966,7 @@
             var m = kiSchritt(k, dt); mx = m.mx; my = m.my;
             if (mx || my) { if (!k.ki.ziel) k.blick = Math.atan2(my, mx); else k.blick = Math.atan2(k.ki.ziel.y - k.y, k.ki.ziel.x - k.x); }
           }
-          var tempo = k.def.tempo * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
+          var tempo = k.def.tempo * k.tempoF * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
           if (fPx(k.x, k.y) === 2) tempo *= 0.95;
           bewegen(k, mx * tempo * dt, my * tempo * dt);
         }
@@ -841,9 +996,15 @@
       projektileSchritt(dt);
       flaechen.forEach(function (f) {
         f.t += dt; f.tick -= dt;
+        if (f.folgt) { if (f.folgt.tot) f.t = f.d; f.x = f.folgt.x; f.y = f.folgt.y; }
         if (f.tick <= 0) {
           f.tick = 0.5;
-          gegnerVon(f.owner).forEach(function (o) { if (Math.hypot(o.x - f.x, o.y - f.y) < f.r) { schaden(o, f.dps / 2, f.owner); if (f.bremst) o.gebremst = Math.max(o.gebremst, 0.6); } });
+          gegnerVon(f.owner).forEach(function (o) {
+            if (Math.hypot(o.x - f.x, o.y - f.y) >= f.r) return;
+            if (f.dps) schaden(o, f.dps / 2, f.owner);
+            if (f.bremst) o.gebremst = Math.max(o.gebremst, 0.6);
+            if (f.stoss) { var sw = Math.atan2(o.y - f.y, o.x - f.x); o.stoss = { vx: Math.cos(sw) * f.stoss, vy: Math.sin(sw) * f.stoss, t: 0.2 }; }
+          });
         }
       });
       flaechen = flaechen.filter(function (f) { return f.t < f.d; });
@@ -882,13 +1043,13 @@
           for (var s = 0; s < schritte && !weg; s++) {
             var sx = p.vx * dt / schritte, sy = p.vy * dt / schritte;
             p.x += sx; p.y += sy; p.weg += Math.hypot(sx, sy);
-            var v = fPx(p.x, p.y + 14);
+            var v = fPx(p.x, p.y + SH);
             if (blockiertSchuss(v)) {
-              var tx = Math.floor(p.x / T), ty = Math.floor((p.y + 14) / T);
+              var tx = Math.floor(p.x / T), ty = Math.floor((p.y + SH) / T);
               if (v === 4) { kisteTreffen(tx, ty, p.schaden); weg = true; break; }
               if (p.abprall > 0) {
                 p.abprall--; p.x -= sx; p.y -= sy;
-                if (blockiertSchuss(fPx(p.x + sx, p.y + 14))) p.vx = -p.vx; else p.vy = -p.vy;
+                if (blockiertSchuss(fPx(p.x + sx, p.y + SH))) p.vx = -p.vx; else p.vy = -p.vy;
                 p.w = Math.atan2(p.vy, p.vx); continue;
               }
               fx({ art: 'staub', x: p.x, y: p.y, t: 0, d: 0.25, farbe: '#fff' }); weg = true; break;
@@ -897,10 +1058,12 @@
               var o = kaempfer[k];
               if (o.tot || o.team === p.team || p.getroffen.indexOf(o) >= 0) continue;
               var orr = o.r * (o.gross > 0 ? 1.5 : 1);
-              if (Math.hypot(o.x - p.x, o.y - 14 - p.y) > orr + p.r) continue;
+              var ky = klemm(p.y, o.y - 30 * (o.gross > 0 ? 1.6 : 1), o.y + 4);
+              if (Math.hypot(o.x - p.x, ky - p.y) > orr + p.r) continue;
               p.getroffen.push(o);
               var m = schaden(o, p.schaden, p.owner);
               if (p.bremst) o.gebremst = Math.max(o.gebremst, p.bremst);
+              if (p.charme && !o.tot) { o.verliebt = p.charme; o.verliebtZu = p.owner; zahl({ x: o.x, y: o.y - 60, t: -0.2, text: '<3', farbe: '#ff8ab0' }); }
               if (p.klau) {
                 if (m) heilen(p.owner, m);
                 var w = Math.atan2(p.owner.y - o.y, p.owner.x - o.x), dd = Math.max(0, abst(o, p.owner) - T * 1.2);
@@ -927,6 +1090,7 @@
       angriffKnopf.x = VW - 80; angriffKnopf.y = VH - 110;
       superKnopf.x = VW - 190; superKnopf.y = VH - 70;
       if (VW < 500) { angriffKnopf.x = VW - 74; angriffKnopf.y = VH - 150; superKnopf.x = VW - 170; superKnopf.y = VH - 74; }
+      trickKnopf.x = superKnopf.x - 30; trickKnopf.y = superKnopf.y - 92;
     }
     groesse(); addEventListener('resize', groesse);
 
@@ -950,6 +1114,7 @@
       }
       Pixel.draw(ctx, img, k.x - bw / 2, k.y + 8 - bh - bob, s, Math.cos(k.blick) < 0);
       if (k.schild > 0) { ctx.strokeStyle = 'rgba(200,220,255,.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(k.x, k.y - bh / 2 + 8, bh * 0.6, 0, Math.PI * 2); ctx.stroke(); }
+      if (k.verliebt > 0) { for (var hi = 0; hi < 2; hi++) zeichneHerz(k.x - 8 + hi * 16, k.y - bh - 2 + Math.sin(zeit * 6 + hi) * 3, 5); }
       if (k.betaeubt > 0) { for (var i = 0; i < 3; i++) { var w = zeit * 5 + i * 2.1; Pixel.text(ctx, '*', k.x + Math.cos(w) * 14 - 3, k.y - bh - 4 + Math.sin(w) * 4, 3, '#ffd23f'); } }
       ctx.globalAlpha = 1;
       // Leiste über dem Kopf
@@ -969,6 +1134,10 @@
       }
       if (k.sterne > 0) { zeichneStern(k.x + lb / 2 + 10, ly + 2, 8); ctx.fillStyle = '#fff'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText(k.sterne, k.x + lb / 2 + 20, ly + 7); }
       if (k.energie > 0) { ctx.fillStyle = '#6ef08a'; ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText('⚡' + k.energie, k.x + lb / 2 + 4, ly + 7); }
+    }
+    function zeichneHerz(x, y, r) {
+      ctx.fillStyle = '#ff5a8a'; ctx.beginPath(); ctx.arc(x - r / 2, y, r / 2 + 1, Math.PI, 0); ctx.arc(x + r / 2, y, r / 2 + 1, Math.PI, 0);
+      ctx.lineTo(x, y + r + 2); ctx.closePath(); ctx.fill();
     }
     function zeichneStern(x, y, r, farbe) {
       ctx.fillStyle = farbe || '#ffd23f'; ctx.strokeStyle = '#8a5a00'; ctx.lineWidth = 2; ctx.beginPath();
@@ -1000,6 +1169,9 @@
           ctx.fillStyle = '#e8b896'; ctx.beginPath(); ctx.arc(x2, y2, 12, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2a1a12'; ctx.fillRect(x2 - 12, y2 - 12, 24, 7); return;
         case 'kugel': ctx.fillStyle = '#ff9a1c'; ctx.fillRect(-5, -3, 10, 6); break;
         case 'spucke': ctx.fillStyle = '#d8f0a0'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(-2, -5, 4, 4); break;
+        case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
+        case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
+        case 'grossherz': ctx.restore(); zeichneHerz(x2, y2 - 6, 14); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x2, y2, 18 + Math.sin(zeit * 20) * 3, 0, Math.PI * 2); ctx.stroke(); return;
         case 'teller': ctx.rotate(zeit * 20); ctx.fillStyle = '#f4f4f4'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#c8a0ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.stroke(); break;
         case 'buch': ctx.rotate(zeit * 14); ctx.fillStyle = '#5a3ac8'; ctx.fillRect(-10, -7, 20, 14); ctx.fillStyle = '#fff'; ctx.fillRect(-8, -5, 3, 10); break;
         case 'gold': ctx.fillStyle = '#ffd23f'; ctx.fillRect(-5, -5, 10, 10); ctx.fillStyle = '#fff6b0'; ctx.fillRect(-3, -3, 3, 3); break;
@@ -1035,9 +1207,26 @@
 
       // Flächen
       flaechen.forEach(function (f) {
-        ctx.fillStyle = 'rgba(230,190,110,' + (0.35 + Math.sin(zeit * 10) * 0.05) + ')'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
-        for (var i = 0; i < 8; i++) { var w = zeit * 3 + i, rr = f.r * ((i * 0.37 + zeit * 0.5) % 1); ctx.fillStyle = 'rgba(255,230,170,.6)'; ctx.fillRect(f.x + Math.cos(w) * rr, f.y + Math.sin(w) * rr, 6, 3); }
+        var farbe = f.look === 'mosh' ? 'rgba(200,30,42,' : f.look === 'rauch' ? 'rgba(170,170,185,' : 'rgba(230,190,110,';
+        ctx.fillStyle = farbe + (0.32 + Math.sin(zeit * 10) * 0.05) + ')'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+        if (f.look === 'mosh') { ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -zeit * 80; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.85, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+        for (var i = 0; i < 8; i++) { var w = zeit * 3 + i, rr = f.r * ((i * 0.37 + zeit * 0.5) % 1); ctx.fillStyle = 'rgba(255,240,220,.55)'; ctx.fillRect(f.x + Math.cos(w) * rr, f.y + Math.sin(w) * rr, 6, 3); }
       });
+      if (ball) {
+        [[0, 1], [HH - T * 0.6, 0]].forEach(function (tz) {
+          var feind = (tz[1] === 1) === (spieler.team === 0);
+          ctx.fillStyle = feind ? 'rgba(255,77,90,.35)' : 'rgba(63,162,255,.35)'; ctx.fillRect(TOR_X0, tz[0] - (tz[1] ? T * 0.4 : 0), TOR_X1 - TOR_X0, T);
+          ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2;
+          for (var nx = TOR_X0; nx <= TOR_X1; nx += 10) { ctx.beginPath(); ctx.moveTo(nx, tz[0] - (tz[1] ? T * 0.4 : 0)); ctx.lineTo(nx, tz[0] + T * (tz[1] ? 0.6 : 1)); ctx.stroke(); }
+          ctx.lineWidth = 5; ctx.strokeStyle = '#fff'; ctx.strokeRect(TOR_X0, tz[0] - (tz[1] ? T * 0.4 : 0), TOR_X1 - TOR_X0, T);
+        });
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, HH / 2); ctx.lineTo(W, HH / 2); ctx.stroke();
+      }
+      if (modus === 'huegel') {
+        var hf = huegelHalter === -2 ? 'rgba(255,210,63,' : huegelHalter === -1 ? 'rgba(255,255,255,' : huegelHalter === spieler.team ? 'rgba(63,162,255,' : 'rgba(255,77,90,';
+        ctx.fillStyle = hf + (0.22 + Math.sin(zeit * 4) * 0.05) + ')'; ctx.beginPath(); ctx.arc(W / 2, HH / 2, ZONE_R, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = hf + '.9)'; ctx.lineWidth = 4; ctx.setLineDash([12, 8]); ctx.lineDashOffset = -zeit * 20; ctx.beginPath(); ctx.arc(W / 2, HH / 2, ZONE_R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
       // Energie und Sterne
       energie.forEach(function (e) { var b = Math.sin(zeit * 5 + e.x) * 3; ctx.fillStyle = '#1e8a3a'; ctx.fillRect(e.x - 9, e.y - 12 + b, 18, 22); ctx.fillStyle = '#6ef08a'; ctx.fillRect(e.x - 6, e.y - 9 + b, 12, 16); Pixel.text(ctx, '+', e.x - 4, e.y - 6 + b, 3, '#0a3a18'); });
       sterne.forEach(function (s) { zeichneStern(s.x, s.y - 6 + Math.sin(zeit * 4 + s.x) * 3, 11); });
@@ -1049,6 +1238,13 @@
       // Kämpfer nach y sortiert
       kaempfer.slice().sort(function (a, b) { return a.y - b.y; }).forEach(zeichneKaempfer);
       projektile.forEach(zeichneProjektil);
+      if (ball && ball.da) {
+        var bh2 = ball.traeger ? 0 : Math.min(10, Math.hypot(ball.vx, ball.vy) / 60);
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(ball.x, ball.y + 8, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#222'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ball.x, ball.y - bh2, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#222'; ctx.save(); ctx.translate(ball.x, ball.y - bh2); ctx.rotate(ball.x * 0.05 + ball.y * 0.05);
+        ctx.fillRect(-3, -3, 6, 6); ctx.fillRect(-9, -2, 3, 4); ctx.fillRect(6, -2, 3, 4); ctx.fillRect(-2, 6, 4, 3); ctx.fillRect(-2, -9, 4, 3); ctx.restore();
+      }
 
       // Hecken über allem
       var x0 = Math.max(0, Math.floor((kamX - halbW) / T) - 1), x1 = Math.min(B - 1, Math.ceil((kamX + halbW) / T) + 1);
@@ -1103,21 +1299,27 @@
       else if (stickS) { z = stickZiel(stickS, true); istSuper = true; }
       else if (!touch && maus.drin) z = { w: mausWinkel(), d: mausDist() };
       if (!z) return;
+      var ox = spieler.x, oy = spieler.y - SH;
+      if (ball && ball.traeger === spieler && !istSuper) {
+        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(z.w) * klemm(z.d, T * 2, T * 9), oy + Math.sin(z.w) * klemm(z.d, T * 2, T * 9)); ctx.stroke(); ctx.setLineDash([]);
+        return;
+      }
       var a = spieler.def.angriff, art = istSuper ? spieler.def.superArt : a.art;
       var reich = (istSuper ? (spieler.def.superReichweite || 3.2) : a.reichweite) * T;
       ctx.fillStyle = istSuper ? 'rgba(255,210,63,.28)' : 'rgba(255,255,255,.2)';
       if (art === 'wurf' || art === 'veto' || art === 'natrium' || art === 'sandsturm' || art === 'klosprint') {
-        var d = klemm(z.d, T, reich), px = spieler.x + Math.cos(z.w) * d, py = spieler.y + Math.sin(z.w) * d;
+        var d = klemm(z.d, T, reich), px = ox + Math.cos(z.w) * d, py = oy + Math.sin(z.w) * d;
         var fl = art === 'wurf' ? a.flaeche * T : art === 'veto' ? 2.2 * T : art === 'natrium' ? 2.6 * T : art === 'sandsturm' ? 2.6 * T : 1.7 * T;
         ctx.beginPath(); ctx.arc(px, py, fl, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(spieler.x, spieler.y); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
       } else if (art === 'nah') {
-        ctx.beginPath(); ctx.moveTo(spieler.x, spieler.y); ctx.arc(spieler.x, spieler.y, reich, z.w - a.breite / 2, z.w + a.breite / 2); ctx.closePath(); ctx.fill();
-      } else if (art === 'aura' || art === 'dinner' || art === 'hunger' || art === 'unsichtbar' || art === 'lernnie') {
-        ctx.beginPath(); ctx.arc(spieler.x, spieler.y, art === 'aura' ? 3.2 * T : art === 'dinner' ? 6 * T : T * 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, reich, z.w - a.breite / 2, z.w + a.breite / 2); ctx.closePath(); ctx.fill();
+      } else if (art === 'aura' || art === 'moshpit' || art === 'dinner' || art === 'hunger' || art === 'unsichtbar' || art === 'lernnie') {
+        ctx.beginPath(); ctx.arc(spieler.x, spieler.y, art === 'aura' ? 3.2 * T : art === 'moshpit' ? 2.2 * T : art === 'dinner' ? 6 * T : T * 1.2, 0, Math.PI * 2); ctx.fill();
       } else {
         var breite = istSuper ? 24 : Math.max(16, (a.radius || 8) * 2) + (a.streuung ? 0 : 0);
-        ctx.save(); ctx.translate(spieler.x, spieler.y); ctx.rotate(z.w);
+        ctx.save(); ctx.translate(ox, oy); ctx.rotate(z.w);
         if (!istSuper && a.streuung > 0.2) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, reich, -a.streuung / 2 - 0.05, a.streuung / 2 + 0.05); ctx.closePath(); ctx.fill(); }
         else ctx.fillRect(0, -breite / 2, reich, breite);
         ctx.restore();
@@ -1144,6 +1346,12 @@
       ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(sp.sx, sp.sy, superKnopf.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anteil); ctx.stroke();
       if (bereit) { var sx = sp.x - sp.sx, sy = sp.y - sp.sy, sl = Math.hypot(sx, sy), sf = sl > STICK ? STICK / sl : 1; kreis(sp.sx + sx * sf, sp.sy + sy * sf, 20, '#ffd23f'); }
       ctx.fillStyle = bereit ? '#3a2400' : 'rgba(255,255,255,.6)'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('SUPER', sp.sx, sp.sy + 4);
+      if (spieler.stufe >= BS.TRICK_AB) {
+        var tb = spieler.tricks > 0 && spieler.trickT <= 0;
+        kreis(trickKnopf.x, trickKnopf.y, trickKnopf.r, tb ? 'rgba(110,240,138,.55)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.3)');
+        ctx.fillStyle = tb ? '#0a3a18' : 'rgba(255,255,255,.5)'; ctx.font = '8px "Press Start 2P", monospace'; ctx.fillText('TRICK', trickKnopf.x, trickKnopf.y + 1);
+        ctx.fillText(spieler.tricks + 'x', trickKnopf.x, trickKnopf.y + 13);
+      }
     }
 
     var letzterHud = '';
@@ -1154,6 +1362,13 @@
         var a = teamSterne(spieler.team), b = teamSterne(1 - spieler.team);
         h = '<div class="punkte"><span class="blau">★ ' + a + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + b + ' ★</span></div>';
         if (sternCountdown !== null) h += '<div class="ansage ' + (sternTeam === spieler.team ? 'blau' : 'rotx') + '">' + (sternTeam === spieler.team ? 'Ihr gewinnt in ' : 'Gegner gewinnt in ') + Math.ceil(sternCountdown) + '</div>';
+      } else if (modus === 'ball') {
+        h = '<div class="punkte"><span class="blau">⚽ ' + tore[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + tore[1 - spieler.team] + ' ⚽</span></div>';
+        if (torAnsage > 0) h += '<div class="ansage gross ' + (torTeam === spieler.team ? 'blau' : 'rotx') + '">TOR!</div>';
+        else if (ball.traeger === spieler) h += '<div class="ansage">Du hast den Ball – zielen und schießen! Tor ist oben.</div>';
+      } else if (modus === 'huegel') {
+        var hz = huegelHalter === -2 ? 'umkämpft!' : huegelHalter === -1 ? 'frei' : huegelHalter === spieler.team ? 'eure Zone' : 'gegnerische Zone';
+        h = '<div class="punkte"><span class="blau">♛ ' + Math.floor(huegel[spieler.team]) + ' %</span><span class="uhr">' + uhr + '</span><span class="rotx">' + Math.floor(huegel[1 - spieler.team]) + ' % ♛</span></div><div class="ansage">Zone: ' + hz + '</div>';
       } else if (modus === 'kloppe') {
         h = '<div class="punkte"><span class="blau">✊ ' + teamKos[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + teamKos[1 - spieler.team] + ' ✊</span></div>';
       } else {
@@ -1163,7 +1378,8 @@
       }
       if (spieler.tot && !team) h += '<div class="ansage gross">Raus – Platz ' + (spieler.platz || '?') + '<br><small>Du schaust zu …</small></div>';
       if (spieler.tot && team) h += '<div class="ansage gross">K.o.! Zurück in ' + Math.ceil(spieler.respawn) + '</div>';
-      if (!touch) h += '<div class="superanz' + (superBereit() ? ' bereit' : '') + '"><i style="width:' + Math.round(spieler.superLadung / spieler.def.superKosten * 100) + '%"></i><span>' + (superBereit() ? 'SUPER BEREIT – Leertaste / Rechtsklick' : 'Super lädt …') + '</span></div>';
+      if (!touch) h += '<div class="superanz' + (superBereit() ? ' bereit' : '') + '"><i style="width:' + Math.round(spieler.superLadung / spieler.def.superKosten * 100) + '%"></i><span>' + (superBereit() ? 'SUPER BEREIT – Leertaste / Rechtsklick' : 'Super lädt …') + '</span></div>'
+        + (spieler.stufe >= BS.TRICK_AB ? '<div class="trickanz' + (spieler.tricks > 0 && spieler.trickT <= 0 ? ' bereit' : '') + '">Trick (Q): ' + spieler.tricks + '×</div>' : '');
       if (zeit < 3) h += '<div class="ansage gross">' + BS.MODI.filter(function (m) { return m.id === modus; })[0].name + '</div>';
       if (h !== letzterHud) { hud.innerHTML = h; letzterHud = h; }
     }

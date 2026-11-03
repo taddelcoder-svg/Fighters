@@ -438,6 +438,8 @@
       mood = mood || 'neutral';
       return Pixel.sprite('julian-' + mood, withMood(JULIAN, JULIAN_MOODS, mood), JULIAN_PAL);
     },
+    damon: function () { return Pixel.sprite('damon', DAMON, DAMON_PAL); },
+    moritz: function () { return Pixel.sprite('moritz', MORITZ, MORITZ_PAL); },
     doppeldate: function () {
       var c = document.createElement('canvas'); c.width = 34; c.height = 28;
       var x = c.getContext('2d');

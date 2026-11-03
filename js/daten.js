@@ -2,7 +2,6 @@
 // Die Figuren kommen aus Crazy Lineup (js/sprites.js), jede hat einen Angriff und einen Super.
 (function () {
   // Tempo in Pixeln pro Sekunde (1 Feld = 40 px)
-  var dd = null;   // Doppel-Sprite wird nur einmal gebaut
   var LANGSAM = 160, NORMAL = 185, SCHNELL = 215, RASEND = 240;
 
   // angriff.art: 'schuss' (gerade Projektile), 'wurf' (fliegt über Wände, explodiert am Ziel), 'nah' (kurzer Hieb)
@@ -73,13 +72,22 @@
       superText: 'Natrium! – riesige Explosion, die sogar Wände sprengt.'
     },
     {
-      id: 'doppeldate', name: 'Damon & Moritz', titel: 'Chaos-Dinner', rolle: 'Schütze', farbe: '#f08a9a', skala: 1.5, radius: 18,
-      sprite: function () { return dd || (dd = Sprites.doppeldate()); },
-      hp: 125, tempo: NORMAL, laden: 1.1, superKosten: 110,
-      angriff: { art: 'schuss', anzahl: 2, parallel: 14, streuung: 0, tempo: 600, reichweite: 7.5, schaden: 16, radius: 8, look: 'teller' },
-      angriffText: 'Werfen zu zweit je einen Teller.',
-      superArt: 'dinner', superReichweite: 0,
-      superText: 'Chaos-Dinner – 14 Teller fliegen in alle Richtungen.'
+      id: 'damon', name: 'Damon', titel: 'Metalhead', rolle: 'Schütze', farbe: '#c81e2a',
+      sprite: function () { return Sprites.damon(); },
+      hp: 125, tempo: NORMAL, laden: 1.15, superKosten: 110,
+      angriff: { art: 'schuss', anzahl: 3, salve: 0.09, streuung: 0.08, tempo: 640, reichweite: 7, schaden: 12, radius: 8, look: 'note' },
+      angriffText: 'Power-Chord: 3 Noten schnell hintereinander.',
+      superArt: 'moshpit', superReichweite: 0,
+      superText: 'Moshpit – 3 Sekunden tobt um ihn ein Pit, der Schaden macht und wegschubst.'
+    },
+    {
+      id: 'moritz', name: 'Moritz', titel: 'Kavalier', rolle: 'Kontrolle', farbe: '#f08a9a',
+      sprite: function () { return Sprites.moritz(); },
+      hp: 115, tempo: NORMAL, laden: 1.2, superKosten: 100,
+      angriff: { art: 'schuss', anzahl: 2, parallel: 9, streuung: 0, tempo: 600, reichweite: 7.5, schaden: 15, radius: 8, look: 'herz' },
+      angriffText: 'Wirft zwei Herzen gleichzeitig.',
+      superArt: 'charme', superReichweite: 8,
+      superText: 'Herzensbrecher – wer getroffen wird, verliebt sich, läuft 2 Sekunden auf Moritz zu und kann nicht angreifen.'
     },
     {
       id: 'ecki', name: 'Ecki', titel: 'Muss mal!', rolle: 'Flitzer', farbe: '#3ab0e8',
@@ -111,13 +119,50 @@
     }
   ];
 
+  // Trick (aktiv, 3x pro Runde, ab Stufe 3) und Talent (passiv, ab Stufe 5)
+  var EXTRAS = {
+    matteo: { trick: 'nachladen', trickName: 'Eilverordnung', trickText: 'Sofort volle Munition.',
+      talent: { superF: 1.25 }, talentName: 'Amtsbonus', talentText: 'Super lädt 25 % schneller.' },
+    timo: { trick: 'ring', trickName: 'Rettungsring', trickText: 'Heilt 35 % Leben.',
+      talent: { hp: 1.15 }, talentName: 'Seebär', talentText: '+15 % Leben.' },
+    leon: { trick: 'rueckzug', trickName: 'Hals einziehen', trickText: 'Springt 3 Felder zurück.',
+      talent: { schaden: 1.12 }, talentName: 'Kopfnuss-Profi', talentText: '+12 % Schaden.' },
+    mo: { trick: 'sprung', trickName: 'Mini-Sprung', trickText: 'Springt 3 Felder nach vorn.',
+      talent: { tempo: 1.08 }, talentName: 'Turboschuhe', talentText: 'Läuft 8 % schneller.' },
+    omar: { trick: 'flasche', trickName: 'Wasserflasche', trickText: 'Heilt 25 % und macht 2 Sekunden schneller.',
+      talent: { regenTempo: 2 }, talentName: 'Wüstenfest', talentText: 'Heilt sich doppelt so schnell.' },
+    felix: { trick: 'borschtsch', trickName: 'Borschtsch', trickText: 'Heilt 40 % Leben.',
+      talent: { biss: 0.6, hp: 1.05 }, talentName: 'Volksküche', talentText: 'Biss heilt 60 % statt 35 % des Schadens.' },
+    julian: { trick: 'rauch', trickName: 'Rauchbombe', trickText: 'Wolke um ihn, die Gegner 3 Sekunden bremst.',
+      talent: { laden: 0.88 }, talentName: 'Katalysator', talentText: 'Lädt 12 % schneller nach.' },
+    damon: { trick: 'stagedive', trickName: 'Stagedive', trickText: 'Springt bis zu 4 Felder und schubst bei der Landung.',
+      talent: { schaden: 1.1 }, talentName: 'Lautstärke 11', talentText: '+10 % Schaden.' },
+    moritz: { trick: 'strauss', trickName: 'Blumenstrauß', trickText: 'Heilt ihn und alle Teamkollegen in der Nähe um 30.',
+      talent: { hp: 1.12 }, talentName: 'Gentleman', talentText: '+12 % Leben.' },
+    ecki: { trick: 'klopapier', trickName: 'Notfall-Klopapier', trickText: '3 Sekunden lang 30 % schneller.',
+      talent: { regenPause: 0.5 }, talentName: 'Blasenstark', talentText: 'Fängt doppelt so früh an zu heilen.' },
+    philipp: { trick: 'spickzettel', trickName: 'Spickzettel', trickText: 'Der nächste Treffer zählt doppelt.',
+      talent: { laden: 0.85 }, talentName: 'Streber', talentText: 'Lädt 15 % schneller nach.' },
+    saro: { trick: 'goldregen', trickName: 'Goldregen', trickText: '10 Goldnuggets fliegen ringsum.',
+      talent: { superF: 1.2 }, talentName: 'Goldader', talentText: 'Super lädt 20 % schneller.' }
+  };
+  KAEMPFER.forEach(function (k) { var e = EXTRAS[k.id]; for (var f in e) k[f] = e[f]; });
+
+  // Stufen: jede Stufe +7 % Leben und Schaden; Kosten in Münzen für den Schritt auf die nächste Stufe
+  var STUFE_KOSTEN = [0, 20, 35, 75, 140, 290, 480, 800, 1250];
+  var MAX_STUFE = 9, TRICK_AB = 3, TALENT_AB = 5;
+
   var MODI = [
     { id: 'sterne', name: 'Sternenregen', icon: '★', team: true,
       text: '3 gegen 3: Sammelt die Sterne aus der Mitte. Wer 10 hat und 15 Sekunden hält, gewinnt. Wer stirbt, verliert seine Sterne.' },
     { id: 'royale', name: 'Pausenhof-Royale', icon: '☠', team: false,
       text: 'Jeder gegen jeden, 8 Leute. Kisten knacken, Energie sammeln, der Kreidestaub zieht sich zusammen. Wer zuletzt steht, gewinnt.' },
     { id: 'kloppe', name: 'Klassenkeile', icon: '✊', team: true,
-      text: '3 gegen 3: Das erste Team mit 10 K.o.s gewinnt. Nach einem K.o. geht es nach 3 Sekunden weiter.' }
+      text: '3 gegen 3: Das erste Team mit 10 K.o.s gewinnt. Nach einem K.o. geht es nach 3 Sekunden weiter.' },
+    { id: 'ball', name: 'Pausenball', icon: '⚽', team: true,
+      text: '3 gegen 3: Schnapp dir den Ball und schieß ihn ins gegnerische Tor (oben). Mit Ball schießt du statt anzugreifen. Zwei Tore gewinnen.' },
+    { id: 'huegel', name: 'Hügelkönig', icon: '♛', team: true,
+      text: '3 gegen 3: Haltet die Zone in der Mitte. Steht nur euer Team drin, füllt sich eure Leiste – wer zuerst 100 % hat, gewinnt.' }
   ];
 
   // Legende: . Boden  # Wand (Tische, Regale)  b Hecke (versteckt)  w Wasser (Schüsse fliegen drüber)  K Kiste
@@ -166,6 +211,46 @@
     }
   };
 
+  KARTEN.sportplatz = {
+    name: 'Sportplatz',
+    haelfte: [
+      '#######.......#######',
+      '..b...............b..',
+      '..b....##...##....b..',
+      '.......##...##.......',
+      '.....................',
+      'bb....b.......b....bb',
+      'bb...bbb.....bbb...bb',
+      '.........###.........',
+      '.....................',
+      '..##.............##..',
+      '..##....b...b....##..',
+      '........b...b........',
+      '.....................'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.aula = {
+    name: 'Aula',
+    haelfte: [
+      '......bb.....bb......',
+      '.....................',
+      '..##.....###.....##..',
+      '..##.............##..',
+      '.......b.....b.......',
+      'bb....bbb...bbb....bb',
+      'bb.................bb',
+      '.....##.......##.....',
+      '.....##...w...##.....',
+      '..........w..........',
+      '.b.................b.',
+      'bbb......#.#......bbb',
+      '.b.................b.',
+      '.....................'
+    ],
+    mitte: '.##...............##.'
+  };
+
   // Royale-Karte: Viertel oben links, wird in beide Richtungen gespiegelt (36 x 36)
   var ROYALE = {
     name: 'Pausenhof',
@@ -207,9 +292,11 @@
   window.BS = window.BS || {};
   BS.KAEMPFER = KAEMPFER;
   BS.MODI = MODI;
+  BS.STUFE_KOSTEN = STUFE_KOSTEN; BS.MAX_STUFE = MAX_STUFE; BS.TRICK_AB = TRICK_AB; BS.TALENT_AB = TALENT_AB;
   BS.karte = function (modus) {
     if (modus === 'royale') return royaleKarte();
-    return teamKarte(modus === 'kloppe' ? KARTEN.turnhalle : KARTEN.schulhof);
+    var k = { kloppe: KARTEN.turnhalle, ball: KARTEN.sportplatz, huegel: KARTEN.aula }[modus] || KARTEN.schulhof;
+    return teamKarte(k);
   };
   BS.kaempfer = function (id) { for (var i = 0; i < KAEMPFER.length; i++) if (KAEMPFER[i].id === id) return KAEMPFER[i]; return KAEMPFER[0]; };
 })();
