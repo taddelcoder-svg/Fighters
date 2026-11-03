@@ -5,32 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#1c1430">
   <title>Bravo Stars</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <main id="menue" hidden>
-    <div class="leiste">
-      <span id="gesamt" class="gesamt">🏆 0</span>
-      <button id="ton" class="ico" type="button" aria-label="Ton an/aus">🔊</button>
-    </div>
-    <header>
-      <h1>BRAVO<br><span>STARS</span></h1>
-      <p>Die Klasse aus Crazy Lineup prügelt sich – mit Stempeln, Kamelspucke und Natrium.</p>
+    <div class="strahlen" aria-hidden="true"></div>
+    <header class="topbar">
+      <button id="profil" class="profil" type="button" aria-label="Profil und Rang"></button>
+      <div id="waehrung" class="waehrung"></div>
+      <button id="ton" class="rundknopf" type="button" aria-label="Ton an/aus">🔊</button>
     </header>
-    <nav id="tabs" class="tabs" aria-label="Menü"></nav>
-    <section id="seite" class="wahl"></section>
+    <div id="home" class="home">
+      <nav id="leiste" class="leiste" aria-label="Menü"></nav>
+      <div class="buehne">
+        <h1 class="logo">BRAVO<span>STARS</span></h1>
+        <div id="held" class="held"></div>
+      </div>
+      <div class="unten">
+        <button id="freunde" class="knopf blau freundeknopf" type="button"></button>
+        <button id="moduswahl" class="modusbanner" type="button"></button>
+        <button id="los" class="spielenknopf" type="button">SPIELEN</button>
+      </div>
+    </div>
+    <section id="screen" class="screen" hidden>
+      <div class="screenkopf"><button id="zurueck" class="rundknopf zurueck" type="button" aria-label="Zurück">‹</button><h2 id="screentitel"></h2></div>
+      <div id="seite" class="seiteninhalt"></div>
+    </section>
   </main>
   <div id="spiel" hidden></div>
   <div id="ergebnis" class="ergebnis" hidden></div>
   <div id="truhe" class="truhe" hidden></div>
 
-  <script src="js/pixel.js?v=5"></script>
-  <script src="js/sprites.js?v=5"></script>
-  <script src="js/netz.js?v=5"></script>
-  <script src="js/daten.js?v=5"></script>
-  <script src="js/extras.js?v=5"></script>
-  <script src="js/spiel.js?v=5"></script>
-  <script src="js/menue.js?v=5"></script>
+  <script src="js/pixel.js?v=6"></script>
+  <script src="js/sprites.js?v=6"></script>
+  <script src="js/netz.js?v=6"></script>
+  <script src="js/daten.js?v=6"></script>
+  <script src="js/extras.js?v=6"></script>
+  <script src="js/spiel.js?v=6"></script>
+  <script src="js/menue.js?v=6"></script>
   <!-- Rangliste der Spielesammlung: meldet Spielzeit, Pokale und Progress, Spielstand in der Cloud -->
   <script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Bravo Stars" data-speicher="bravostars." data-speicher-ohne="bravostars.stumm" defer></script>
 </body>

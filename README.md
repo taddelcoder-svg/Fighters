@@ -7,6 +7,9 @@ Reines HTML/CSS/JS ohne Build: `node server.js` starten und `http://localhost:10
 
 ## Online
 
+Online spielen nur echte Leute – keine Bots (mindestens 2 im Raum). Der Host legt Modus, Modifikator und Spielzeit fest.
+Wer geht oder aufgibt, verschwindet aus der Runde; hat ein Team niemanden mehr, gewinnt das andere.
+
 Unter „Online mit Freunden“ erstellt einer einen Raum und gibt den 4-stelligen Code weiter, die anderen treten bei.
 Bis zu 6 Leute in den Team-Modi (abwechselnd Blau/Rot), bis zu 8 im Royale; freie Plätze übernehmen Bots.
 Der Host rechnet das Spiel und schickt 20-mal pro Sekunde den Stand, die Gäste schicken nur ihre Eingaben.
@@ -26,6 +29,13 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 | Trainingsplatz | Übungspuppen, keine Pokale |
 | Pausenhof-Royale | Jeder gegen jeden (8), Kisten knacken für Energie, Kreidestaub zieht sich zusammen |
 | Klassenkeile | 3 gegen 3, das erste Team mit 10 K.o.s gewinnt |
+
+## Menü und Spiel-Extras
+
+Startbildschirm mit Kämpfer auf der Bühne, Profil mit Rang, Münzen, Schnellknöpfen und SPIELEN-Knopf; Unterbildschirme für Kämpfer, Shop,
+Aufgaben, Pokal-Weg, Modus-Auswahl (Kartenvorschau, Modifikator des Tages) und Freunde.
+Jede Runde beginnt mit einem VS-Intro, zeigt einen Kill-Feed, eine Punktetabelle (Tab / 📋) und am Ende den besten Spieler (MVP).
+Modifikatoren: Super-Turbo, Heilpilze, Meteoritenschauer, Energydrink.
 
 ## Fortschritt
 
@@ -61,6 +71,7 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 |---|---|
 | `js/pixel.js`, `js/sprites.js` | Pixel-Helfer und Figuren aus Crazy Lineup |
 | `js/daten.js` | Kämpferwerte, Modi, Karten (als Textraster) |
+| `vendor/` | Schriften Lilita One, Pixelify Sans, Press Start 2P (alle SIL OFL 1.1, Lizenzdateien liegen bei) |
 | `js/extras.js` | Skins, Ausrüstung, Emotes, Ränge, Truhen, Pokal-Weg, Tagesaufgaben, Karten-Rotation |
 | `js/spiel.js` | Eine Runde: Bewegung, Kampf, Bots, Modusregeln, Zeichnen, Steuerung |
 | `js/menue.js` | Menü, Online-Lobby, Pokale (localStorage `bravostars.*`), Ergebnis |

@@ -153,23 +153,23 @@
   var MAX_STUFE = 9, TRICK_AB = 3, TALENT_AB = 5, AUSRUESTUNG_AB = 7, ULTRA_AB = 9;
 
   var MODI = [
-    { id: 'sterne', name: 'Sternenregen', icon: '★', team: true,
+    { id: 'sterne', farbe: '#8a4ad8', name: 'Sternenregen', icon: '★', team: true,
       text: '3 gegen 3: Sammelt die Sterne aus der Mitte. Wer 10 hat und 15 Sekunden hält, gewinnt. Wer stirbt, verliert seine Sterne.' },
-    { id: 'royale', name: 'Pausenhof-Royale', icon: '☠', team: false,
+    { id: 'royale', farbe: '#3a9a4a', name: 'Pausenhof-Royale', icon: '☠', team: false,
       text: 'Jeder gegen jeden, 8 Leute. Kisten knacken, Energie sammeln, der Kreidestaub zieht sich zusammen. Wer zuletzt steht, gewinnt.' },
-    { id: 'kloppe', name: 'Klassenkeile', icon: '✊', team: true,
+    { id: 'kloppe', farbe: '#d8343f', name: 'Klassenkeile', icon: '✊', team: true,
       text: '3 gegen 3: Das erste Team mit 10 K.o.s gewinnt. Nach einem K.o. geht es nach 3 Sekunden weiter.' },
-    { id: 'ball', name: 'Pausenball', icon: '⚽', team: true,
+    { id: 'ball', farbe: '#2a8ad8', name: 'Pausenball', icon: '⚽', team: true,
       text: '3 gegen 3: Schnapp dir den Ball und schieß ihn ins gegnerische Tor (oben). Mit Ball schießt du statt anzugreifen. Zwei Tore gewinnen.' },
-    { id: 'huegel', name: 'Hügelkönig', icon: '♛', team: true,
+    { id: 'huegel', farbe: '#d89a2a', name: 'Hügelkönig', icon: '♛', team: true,
       text: '3 gegen 3: Haltet die Zone in der Mitte. Steht nur euer Team drin, füllt sich eure Leiste – wer zuerst 100 % hat, gewinnt.' },
-    { id: 'tresor', name: 'Tresorknacker', icon: '🔒', team: true,
+    { id: 'tresor', farbe: '#5a6a8a', name: 'Tresorknacker', icon: '🔒', team: true,
       text: '3 gegen 3: Jedes Team hat einen Tresor. Knackt den gegnerischen, bevor sie euren knacken. Nach Ablauf gewinnt, wessen Tresor mehr Leben hat.' },
-    { id: 'kopfgeld', name: 'Kopfgeld', icon: '💰', team: true,
+    { id: 'kopfgeld', farbe: '#c8902a', name: 'Kopfgeld', icon: '💰', team: true,
       text: '3 gegen 3: Jeder K.o. bringt so viele Sterne, wie Kopfgeld auf dem Gegner liegt. Wer viele K.o.s schafft, wird selbst wertvoller.' },
-    { id: 'duo', name: 'Duo-Royale', icon: '👥', team: false,
+    { id: 'duo', farbe: '#2aa898', name: 'Duo-Royale', icon: '👥', team: false,
       text: 'Vier 2er-Teams auf dem Pausenhof: du und ein Partner gegen den Rest. Das letzte Duo, das noch steht, gewinnt.' },
-    { id: 'training', name: 'Trainingsplatz', icon: '🎯', team: true, training: true,
+    { id: 'training', farbe: '#6a6a7a', name: 'Trainingsplatz', icon: '🎯', team: true, training: true,
       text: 'Ohne Gegner, ohne Pokale: Probier Angriff, Super, Trick und Ultra an Übungspuppen aus.' }
   ];
 

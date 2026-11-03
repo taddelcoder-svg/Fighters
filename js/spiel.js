@@ -25,6 +25,8 @@
 
     var modus = opt.modus, duo = modus === 'duo', royaleArt = modus === 'royale' || duo, team = !royaleArt;
     var training = modus === 'training', rangspiel = !!opt.rang;
+    var mod = training ? 'keiner' : (opt.modifikator || (opt.netz && opt.netz.init && opt.netz.init.mod) || BS.modifikatorHeute(modus));
+    var zeitFaktor = opt.zeitFaktor || 1;
     // Bot-Stärke: Leicht / Normal / Schwer (Rangspiel ist immer Schwer und noch etwas besser)
     var STAERKE = {
       leicht: { fehler: 0.42, takt: 1.9, vorhalt: 0, sicht: 7, denk: 0.75, stufe: -1.5, schaden: 0.7, seite: 0.35, super: 0.35, trick: 0.15 },
@@ -161,16 +163,9 @@
         k.name = m.name; k.mensch = m.id;
         if (m.id === netz.ich) spieler = k; else { k.ki = null; k.eingabe = { mx: 0, my: 0, b: 0 }; }
       };
-      if (team) {
-        [0, 1].forEach(function (tm) {
-          var drin = netz.spieler.filter(function (m) { return m.team === tm; });
-          drin.forEach(function (m) { mensch(m, tm); });
-          for (var i = drin.length; i < 3; i++) bot(botPool[bi++], tm, schnitt);
-        });
-      } else {
-        netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
-        for (var i3 = netz.spieler.length; i3 < 8; i3++) bot(botPool[bi++], duo ? Math.floor(i3 / 2) : i3, schnitt);
-      }
+      // Online spielen nur Menschen – keine Bots
+      if (team) netz.spieler.forEach(function (m) { mensch(m, m.team); });
+      else netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
     } else if (training) {
       spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
       for (var gt = 0; gt < 3; gt++) {
@@ -206,7 +201,7 @@
       return freiesFeld(Math.round(B / 2 - 0.5 + Math.cos(w) * (B / 2 - 3)), Math.round(H / 2 - 0.5 + Math.sin(w) * (H / 2 - 3)));
     }
     kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); });
-    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung]; }) } });
+    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, mod: mod, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung]; }) } });
 
     // ---------- Wege für die Bots (Breitensuche auf dem Raster) ----------
     var wegeNeu = false, wegCache = {};
@@ -318,7 +313,7 @@
       if (von && von.team !== ziel.team) ultraLaden(von, menge);
       if (ziel.unsichtbar > 0) ziel.unsichtbar = 0;
       zahl({ x: ziel.x + rnd(-8, 8), y: ziel.y - 40, t: 0, text: String(menge), farbe: ziel === spieler ? '#ff6a6a' : '#fff' });
-      if (von && !ohneLadung && von.team !== ziel.team) { von.superLadung = Math.min(von.def.superKosten, von.superLadung + menge / (von.dmgF || 1) * (von.superF || 1)); }
+      if (von && !ohneLadung && von.team !== ziel.team) { von.superLadung = Math.min(von.def.superKosten, von.superLadung + (mod === 'superschnell' ? 2 : 1) * menge / (von.dmgF || 1) * (von.superF || 1)); }
       if (ziel === spieler) wackeln = Math.min(10, wackeln + 4);
       if (ziel.hp <= 0) sterben(ziel, von);
       return menge;
@@ -343,7 +338,13 @@
     }
     function heilen(k, menge) { if (k.tot) return; k.hp = Math.min(k.maxHp, k.hp + menge); zahl({ x: k.x, y: k.y - 44, t: 0, text: '+' + Math.round(menge), farbe: '#6ef08a' }); }
 
+    function feedPlus(von, k) {
+      var e = { a: von ? kaempfer.indexOf(von) : -1, b: kaempfer.indexOf(k), t: 4.5, art: von ? '' : (k.durchMeteor ? 'meteor' : 'gas') };
+      feed.unshift(e); feed = feed.slice(0, 5);
+      if (host) ev.push(['kf', e.a, e.b, e.art]);
+    }
     function sterben(k, von) {
+      feedPlus(von, k);
       k.tot = true; k.hp = 0; k.dash = null; k.stoss = null; k.salve = [];
       for (var i = 0; i < 14; i++) fx({ art: 'splitter', x: k.x, y: k.y - 14, vx: rnd(-200, 200), vy: rnd(-260, 80), t: 0, d: 0.7, farbe: k.def.farbe });
       sfx.tone(300, 0.3, 'sawtooth', 0.07, 80);
@@ -547,7 +548,9 @@
     var tresore = modus === 'tresor' ? [{ team: 0, x: W / 2, y: HH - 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }, { team: 1, x: W / 2, y: 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }] : [];
     if (modus === 'kopfgeld') dauer = 120;
     if (modus === 'tresor') dauer = 150;
+    if (!royaleArt) dauer = Math.round(dauer * zeitFaktor);
     if (training) dauer = 9999;
+    var pilze = [], pilzT = 6, meteore = [], meteorT = 12, feed = [];
     var sternT = 3, sternCountdown = null, sternTeam = -1, teamKos = [0, 0];
     var gas = { r: Math.hypot(W, HH) / 2 + T, ziel: T * 3, start: 20, dauer: 100 };
 
@@ -634,7 +637,48 @@
       return true;
     }
 
+    function modSchritt(dt) {
+      if (mod === 'heilpilze') {
+        pilzT -= dt;
+        if (pilzT <= 0 && pilze.length < 4) {
+          pilzT = 8;
+          for (var v = 0; v < 30; v++) {
+            var tx = Math.floor(rnd(1, B - 1)), ty = Math.floor(rnd(2, H - 2));
+            if (fAt(tx, ty) === 0) { pilze.push({ x: (tx + 0.5) * T, y: (ty + 0.5) * T }); break; }
+          }
+        }
+        for (var i = pilze.length - 1; i >= 0; i--) {
+          var pz = pilze[i];
+          for (var j = 0; j < kaempfer.length; j++) {
+            var k = kaempfer[j];
+            if (!k.tot && Math.hypot(k.x - pz.x, k.y - pz.y) < k.r + 14) { heilen(k, k.maxHp * 0.35); pilze.splice(i, 1); sfx.tone(600, 0.1, 'triangle', 0.05, 1200); break; }
+          }
+        }
+      }
+      if (mod === 'meteore' && zeit > 8) {
+        meteorT -= dt;
+        if (meteorT <= 0) {
+          meteorT = rnd(2.2, 3.6);
+          var opfer = kaempfer.filter(function (o) { return !o.tot; });
+          if (opfer.length) { var o = opfer[Math.floor(Math.random() * opfer.length)]; meteore.push({ x: klemm(o.x + rnd(-2, 2) * T, T, W - T), y: klemm(o.y + rnd(-2, 2) * T, T, HH - T), t: 0 }); }
+        }
+        for (var m = meteore.length - 1; m >= 0; m--) {
+          var me = meteore[m]; me.t += dt;
+          if (me.t >= 1.3) {
+            kaempfer.forEach(function (o) { if (!o.tot && Math.hypot(o.x - me.x, o.y - me.y) < 1.4 * T + o.r * 0.5) { o.durchMeteor = true; schaden(o, 38, null); o.durchMeteor = false; } });
+            fx({ art: 'boom', x: me.x, y: me.y, r: 1.4 * T, t: 0, d: 0.4, farbe: '#ff8a2a' });
+            sfx.noise(0.3, 0.25, 600); wackeln = Math.max(wackeln, 4);
+            meteore.splice(m, 1);
+          }
+        }
+      }
+    }
     function modusSchritt(dt) {
+      modSchritt(dt);
+      // Online ohne Bots: hat ein Team niemanden mehr, gewinnt das andere
+      if (host && team && !training && zeit > 1) {
+        for (var tt = 0; tt < 2; tt++) if (!kaempfer.some(function (k) { return k.team === tt && !k.weg; })) return abschluss(1 - tt);
+      }
       if (ball) { if (!ball.da) { ball.da = true; ballZurueck(); } if (torAnsage > 0) torAnsage -= dt; }
       if (modus === 'sterne') {
         sternT -= dt;
@@ -965,6 +1009,67 @@
       });
     }
     pauseKnopf.addEventListener('click', aufgeben);
+    function nameVon(k) { return k === spieler ? (k.name || 'Du') : k.name || k.def.name; }
+    function spriteVon(k, groesse) {
+      var img = k.def.sprite('normal'); if (k.skin) img = BS.umfaerben(img, k.skin);
+      var c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.className = 'px'; c.style.height = groesse + 'px';
+      c.getContext('2d').drawImage(img, 0, 0); return c;
+    }
+    // Punktetabelle (Tab-Taste oder Knopf)
+    var tabelleKnopf = document.createElement('button'); tabelleKnopf.type = 'button'; tabelleKnopf.className = 'tabelleknopf'; tabelleKnopf.textContent = '📋';
+    tabelleKnopf.setAttribute('aria-label', 'Punktetabelle'); root.appendChild(tabelleKnopf);
+    var tabelleEl = document.createElement('div'); tabelleEl.className = 'spieltabelle'; tabelleEl.hidden = true; root.appendChild(tabelleEl);
+    function tabelleZeigen(an) {
+      tabelleEl.hidden = !an; if (!an) return;
+      tabelleEl.innerHTML = '';
+      var teams = {}; kaempfer.forEach(function (k) { (teams[k.team] = teams[k.team] || []).push(k); });
+      Object.keys(teams).sort(function (a, b) { return (+a === spieler.team ? -1 : 0) - (+b === spieler.team ? -1 : 0); }).forEach(function (t) {
+        var block = document.createElement('div'); block.className = 'tblock ' + (+t === spieler.team ? 'eigen' : 'fremd');
+        teams[t].sort(function (a, b) { return b.kos - a.kos; }).forEach(function (k) {
+          var z = document.createElement('div'); z.className = 'tzeile' + (k === spieler ? ' ich' : '') + (k.weg ? ' weg' : '');
+          z.appendChild(spriteVon(k, 28));
+          var n = document.createElement('b'); n.textContent = nameVon(k) + (k.weg ? ' (weg)' : ''); z.appendChild(n);
+          var w = document.createElement('span'); w.textContent = '✖ ' + k.kos + '   💥 ' + Math.round(k.statSchaden) + (ball ? '   ⚽ ' + k.statTore : ''); z.appendChild(w);
+          block.appendChild(z);
+        });
+        tabelleEl.appendChild(block);
+      });
+    }
+    tabelleKnopf.addEventListener('click', function () { tabelleZeigen(tabelleEl.hidden); });
+    addEventListener('keydown', tabTaste); addEventListener('keyup', tabTaste);
+    function tabTaste(e) { if (e.code === 'Tab') { e.preventDefault(); tabelleZeigen(e.type === 'keydown'); } }
+    var tabelleT = 0;
+
+    // VS-Intro: Teams vorstellen
+    var intro = 2.6;
+    (function () {
+      var v = document.createElement('div'); v.className = 'vsintro';
+      var md = BS.MODI.filter(function (m) { return m.id === modus; })[0] || BS.MODI[0];
+      var kopf = document.createElement('div'); kopf.className = 'vskopf';
+      kopf.innerHTML = '<span class="vsicon"></span><b></b><small></small>';
+      kopf.querySelector('.vsicon').textContent = md.icon; kopf.querySelector('b').textContent = md.name;
+      var mo = BS.modifikator(mod);
+      kopf.querySelector('small').textContent = BS.KARTEN_NAMEN[kartenName] + (mo && mo.id !== 'keiner' ? '  ·  ' + mo.icon + ' ' + mo.name : '');
+      v.appendChild(kopf);
+      var reihe = document.createElement('div'); reihe.className = 'vsreihe';
+      var teams = {}; kaempfer.forEach(function (k) { (teams[k.team] = teams[k.team] || []).push(k); });
+      var ids = Object.keys(teams).sort(function (a, b) { return (+a === spieler.team ? -1 : 0) - (+b === spieler.team ? -1 : 0); });
+      ids.forEach(function (t, i) {
+        if (i && team) { var vs = document.createElement('div'); vs.className = 'vs'; vs.textContent = 'VS'; reihe.appendChild(vs); }
+        var g = document.createElement('div'); g.className = 'vsteam ' + (+t === spieler.team ? 'eigen' : 'fremd');
+        teams[t].forEach(function (k) {
+          var c = document.createElement('div'); c.className = 'vskarte';
+          c.appendChild(spriteVon(k, team ? 64 : 40));
+          var n = document.createElement('b'); n.textContent = nameVon(k); c.appendChild(n);
+          g.appendChild(c);
+        });
+        reihe.appendChild(g);
+      });
+      v.appendChild(reihe);
+      root.appendChild(v);
+      setTimeout(function () { v.classList.add('weg'); }, 2200);
+      setTimeout(function () { v.remove(); }, 2700);
+    })();
 
     function lokaleEingabe() {
       var mx = 0, my = 0, k = spieler;
@@ -991,7 +1096,7 @@
         k: kaempfer.map(function (k) {
           return [r1(k.x), r1(k.y), Math.max(0, Math.ceil(k.hp)), k.maxHp, r2(k.blick), k.munition, r2(k.ladeT), Math.round(k.superLadung), k.sterne, k.energie,
             k.tot ? 1 : 0, r2(k.respawn), k.kos, r2(k.gross), r2(k.schild), r2(k.unsichtbar), r2(k.betaeubt), k.bewegt ? 1 : 0,
-            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld];
+            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld, Math.round(k.statSchaden), k.weg ? 1 : 0, k.statTore];
         }),
         p: projektile.map(function (p) {
           return p.wurf ? [1, r1(p.sx), r1(p.sy), r1(p.tx), r1(p.ty), r2(p.t), p.T, r1(p.flaeche), p.look]
@@ -1001,7 +1106,7 @@
         e: energie.map(function (o) { return [r1(o.x), r1(o.y)]; }),
         f: flaechen.map(function (o) { return [r1(o.x), r1(o.y), r1(o.r)]; }),
         b: ball ? [r1(ball.x), r1(ball.y), r1(ball.vx), r1(ball.vy), ball.traeger ? kaempfer.indexOf(ball.traeger) : -1] : null, to: tore,
-        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter], tr: tresore.map(function (t) { return Math.round(t.hp); }), kg: teamKopf,
+        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter], tr: tresore.map(function (t) { return Math.round(t.hp); }), kg: teamKopf, pz: pilze.map(function (o) { return [Math.round(o.x), Math.round(o.y)]; }), mt: meteore.map(function (o) { return [Math.round(o.x), Math.round(o.y), r2(o.t)]; }),
         g: r1(gas.r), tk: teamKos, sc: sternCountdown === null ? null : r2(sternCountdown), st: sternTeam, ev: ev };
       ev = [];
       netz.senden({ t: 'an_alle', d: d });
@@ -1017,7 +1122,7 @@
         k.munition = a[5]; k.ladeT = a[6]; k.superLadung = a[7]; k.sterne = a[8]; k.energie = a[9]; k.tot = !!a[10]; k.respawn = a[11]; k.kos = a[12];
         k.gross = a[13]; k.schild = a[14]; k.unsichtbar = a[15]; k.betaeubt = a[16]; k.bewegt = !!a[17];
         k.dash = a[18] ? { look: a[18] === 1 ? 'boot' : 'sprint' } : null; k.zuletztAktiv = zeit - a[19] / 10; k.platz = a[20];
-        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26];
+        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26]; k.statSchaden = a[27]; k.weg = !!a[28]; k.statTore = a[29];
       });
       projektile = d.p.map(function (a) {
         return a[0] ? { wurf: true, sx: a[1], sy: a[2], tx: a[3], ty: a[4], t: a[5], T: a[6], flaeche: a[7], look: a[8] }
@@ -1031,16 +1136,20 @@
       if (d.hz) { huegel = [d.hz[0], d.hz[1]]; huegelHalter = d.hz[2]; }
       if (d.tr) d.tr.forEach(function (hp, i) { if (tresore[i]) { if (hp < tresore[i].hp) tresore[i].blitz = 0.12; tresore[i].hp = hp; } });
       if (d.kg) teamKopf = d.kg;
+      if (d.pz) pilze = d.pz.map(function (a) { return { x: a[0], y: a[1] }; });
+      if (d.mt) meteore = d.mt.map(function (a) { return { x: a[0], y: a[1], t: a[2] }; });
       gas.r = d.g; teamKos = d.tk; sternCountdown = d.sc; sternTeam = d.st;
       d.ev.forEach(function (e) {
         if (e[0] === 'f') effekte.push(e[1]);
         else if (e[0] === 'z') zahlen.push(e[1]);
         else if (e[0] === 'w') { feld[e[2] * B + e[1]] = 0; feldZeichnen(e[1], e[2]); }
+        else if (e[0] === 'kf') { feed.unshift({ a: e[1], b: e[2], t: 4.5, art: e[3] }); feed = feed.slice(0, 5); }
         else if (e[0] === 'm') { var ek = kaempfer[e[1]]; if (ek) ek.emote = { id: e[2], t: 2.2 }; }
         else if (e[0] === 's') Pixel.sfx[e[1] === 0 ? 'tone' : 'noise'].apply(null, e[2]);
       });
     }
     var gastSendeT = 0;
+    function feedZeit(dt) { feed.forEach(function (f) { f.t -= dt; }); feed = feed.filter(function (f) { return f.t > 0; }); }
     function gastSchritt(dt) {
       zeit += dt;
       kaempfer.forEach(function (k) {
@@ -1063,7 +1172,12 @@
       if (gastSendeT <= 0) { gastSendeT = 0.033; netz.senden({ t: 'an_host', d: { a: 'e', mx: r2(le.mx), my: r2(le.my), b: r2(spieler.blick) } }); }
     }
     function menschVon(id) { for (var i = 0; i < kaempfer.length; i++) if (kaempfer[i].mensch === id && kaempfer[i] !== spieler) return kaempfer[i]; return null; }
-    function zumBot(k) { k.ki = neueKi(); k.eingabe = null; k.mensch = 0; }
+    // Wer online geht oder aufgibt, verschwindet aus der Runde
+    function zumBot(k) {
+      if (!k.tot) sterben(k, null);
+      k.eingabe = null; k.ki = null; k.mensch = 0; k.weg = true; k.respawn = 1e9;
+      zahl({ x: k.x, y: k.y - 50, t: -0.3, text: (k.name || k.def.name) + ' ist weg', farbe: '#bbb' });
+    }
     if (netz) Netz.spiel = function (o) {
       if (host) {
         if (o.t === 'von') {
@@ -1089,7 +1203,7 @@
       zeit += dt;
       kaempfer.forEach(function (k) {
         if (k.tot) {
-          if (team) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; } }
+          if (team && !k.weg) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; } }
           return;
         }
         if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
@@ -1132,7 +1246,7 @@
             var m = kiSchritt(k, dt); mx = m.mx; my = m.my;
             if (mx || my) { if (!k.ki.ziel) k.blick = Math.atan2(my, mx); else k.blick = Math.atan2(k.ki.ziel.y - k.y, k.ki.ziel.x - k.x); }
           }
-          var tempo = k.def.tempo * k.tempoF * (k.ultra > 0 ? 1.2 : 1) * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
+          var tempo = k.def.tempo * k.tempoF * (mod === 'turbo' ? 1.15 : 1) * (k.ultra > 0 ? 1.2 : 1) * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
           if (fPx(k.x, k.y) === 2) tempo *= 0.95;
           bewegen(k, mx * tempo * dt, my * tempo * dt);
         }
@@ -1309,7 +1423,7 @@
       ctx.fillStyle = k === spieler ? '#7dff8a' : (eigen ? '#3fa2ff' : '#ff4d5a');
       ctx.fillRect(k.x - lb / 2, ly, lb * klemm(k.hp / k.maxHp, 0, 1), 6);
       var name = k === spieler ? 'DU' : (k.name || def.name.split(' ')[0]);
-      ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'center';
+      ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = '#000'; ctx.fillText(name, k.x + 1, ly - 5); ctx.fillStyle = k === spieler ? '#7dff8a' : '#fff'; ctx.fillText(name, k.x, ly - 6);
       if (k === spieler) {
         for (var m = 0; m < 3; m++) {
@@ -1318,16 +1432,16 @@
           ctx.fillStyle = '#ffa53a'; ctx.fillRect(k.x - lb / 2 + m * (lb / 3), ly + 9, (lb / 3 - 2) * voll, 5);
         }
       }
-      if (modus === 'kopfgeld') { zeichneStern(k.x - lb / 2 - 12, ly + 2, 8, '#ffd23f'); ctx.fillStyle = '#fff'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'right'; ctx.fillText(k.kopfgeld, k.x - lb / 2 - 22, ly + 7); }
+      if (modus === 'kopfgeld') { zeichneStern(k.x - lb / 2 - 12, ly + 2, 8, '#ffd23f'); ctx.fillStyle = '#fff'; ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'right'; ctx.fillText(k.kopfgeld, k.x - lb / 2 - 22, ly + 7); }
       if (k.emote) {
-        var et = BS.emote(k.emote.id).text; ctx.font = '11px "Press Start 2P", monospace'; ctx.textAlign = 'center';
+        var et = BS.emote(k.emote.id).text; ctx.font = '17px "Lilita One", sans-serif'; ctx.textAlign = 'center';
         var ew = ctx.measureText(et).width + 16, ey = ly - 34 - (2.2 - k.emote.t < 0.15 ? (0.15 - (2.2 - k.emote.t)) * 60 : 0);
         ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.rect(k.x - ew / 2, ey - 16, ew, 24); ctx.moveTo(k.x - 6, ey + 8); ctx.lineTo(k.x, ey + 15); ctx.lineTo(k.x + 6, ey + 8); ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#1c1430'; ctx.fillText(et, k.x, ey + 1);
       }
-      if (k.sterne > 0) { zeichneStern(k.x + lb / 2 + 10, ly + 2, 8); ctx.fillStyle = '#fff'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText(k.sterne, k.x + lb / 2 + 20, ly + 7); }
-      if (k.energie > 0) { ctx.fillStyle = '#6ef08a'; ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText('⚡' + k.energie, k.x + lb / 2 + 4, ly + 7); }
+      if (k.sterne > 0) { zeichneStern(k.x + lb / 2 + 10, ly + 2, 8); ctx.fillStyle = '#fff'; ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'left'; ctx.fillText(k.sterne, k.x + lb / 2 + 20, ly + 7); }
+      if (k.energie > 0) { ctx.fillStyle = '#6ef08a'; ctx.font = '12px "Lilita One", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('⚡' + k.energie, k.x + lb / 2 + 4, ly + 7); }
     }
     function zeichneHerz(x, y, r) {
       ctx.fillStyle = '#ff5a8a'; ctx.beginPath(); ctx.arc(x - r / 2, y, r / 2 + 1, Math.PI, 0); ctx.arc(x + r / 2, y, r / 2 + 1, Math.PI, 0);
@@ -1345,7 +1459,7 @@
         ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
         ctx.beginPath(); ctx.arc(p.tx, p.ty, p.flaeche, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
         if (p.look === 'riesenstempel') {
-          ctx.fillStyle = '#e8343f'; ctx.fillRect(x - 26, y - 18, 52, 36); ctx.fillStyle = '#fff'; ctx.font = '7px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('VETO', x, y + 4);
+          ctx.fillStyle = '#e8343f'; ctx.fillRect(x - 26, y - 18, 52, 36); ctx.fillStyle = '#fff'; ctx.font = '11px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('VETO', x, y + 4);
         } else {
           ctx.fillStyle = p.look === 'natrium' ? '#d8d8e0' : '#9ae8f0';
           ctx.beginPath(); ctx.moveTo(x - 4, y - 10); ctx.lineTo(x + 4, y - 10); ctx.lineTo(x + 10, y + 8); ctx.lineTo(x - 10, y + 8); ctx.closePath(); ctx.fill();
@@ -1421,6 +1535,21 @@
         ctx.fillStyle = hf + (0.22 + Math.sin(zeit * 4) * 0.05) + ')'; ctx.beginPath(); ctx.arc(W / 2, HH / 2, ZONE_R, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = hf + '.9)'; ctx.lineWidth = 4; ctx.setLineDash([12, 8]); ctx.lineDashOffset = -zeit * 20; ctx.beginPath(); ctx.arc(W / 2, HH / 2, ZONE_R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       }
+      pilze.forEach(function (pz) {
+        var bb = Math.sin(zeit * 4 + pz.x) * 2;
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(pz.x, pz.y + 10, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f4e8d0'; ctx.fillRect(pz.x - 4, pz.y - 2 + bb, 8, 12);
+        ctx.fillStyle = '#e8343f'; ctx.beginPath(); ctx.arc(pz.x, pz.y - 2 + bb, 13, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillRect(pz.x - 7, pz.y - 9 + bb, 4, 4); ctx.fillRect(pz.x + 3, pz.y - 11 + bb, 4, 4);
+      });
+      meteore.forEach(function (me) {
+        var f = Math.min(1, me.t / 1.3);
+        ctx.fillStyle = 'rgba(255,90,40,' + (0.15 + f * 0.25) + ')'; ctx.beginPath(); ctx.arc(me.x, me.y, 1.4 * T, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,140,60,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(me.x, me.y, 1.4 * T * f, 0, Math.PI * 2); ctx.stroke();
+        var hy = me.y - (1 - f) * 420, hx = me.x + (1 - f) * 160;
+        ctx.fillStyle = '#ffb04a'; ctx.beginPath(); ctx.arc(hx, hy, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#7a3a1a'; ctx.beginPath(); ctx.arc(hx, hy, 8, 0, Math.PI * 2); ctx.fill();
+      });
       // Energie und Sterne
       energie.forEach(function (e) { var b = Math.sin(zeit * 5 + e.x) * 3; ctx.fillStyle = '#1e8a3a'; ctx.fillRect(e.x - 9, e.y - 12 + b, 18, 22); ctx.fillStyle = '#6ef08a'; ctx.fillRect(e.x - 6, e.y - 9 + b, 12, 16); Pixel.text(ctx, '+', e.x - 4, e.y - 6 + b, 3, '#0a3a18'); });
       sterne.forEach(function (s) { zeichneStern(s.x, s.y - 6 + Math.sin(zeit * 4 + s.x) * 3, 11); });
@@ -1478,7 +1607,7 @@
       zahlen.forEach(function (z) {
         if (z.t < 0) return;
         ctx.globalAlpha = 1 - Math.max(0, z.t - 0.5) * 2.5;
-        ctx.font = '11px "Press Start 2P", monospace'; ctx.textAlign = 'center';
+        ctx.font = '17px "Lilita One", sans-serif'; ctx.textAlign = 'center';
         ctx.fillStyle = '#000'; ctx.fillText(z.text, z.x + 2, z.y + 2); ctx.fillStyle = z.farbe; ctx.fillText(z.text, z.x, z.y);
         ctx.globalAlpha = 1;
       });
@@ -1494,6 +1623,7 @@
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       steuerungZeichnen();
+      feedZeichnen();
       hudAktualisieren();
     }
 
@@ -1531,6 +1661,25 @@
       }
     }
 
+    function feedZeichnen() {
+      ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'right';
+      feed.forEach(function (f, i) {
+        var a = kaempfer[f.a], b = kaempfer[f.b]; if (!b) return;
+        var na = a ? (a === spieler ? 'Du' : a.name || a.def.name) : f.art === 'meteor' ? '☄ Meteor' : '☠ Kreidestaub';
+        var nb = b === spieler ? 'Du' : b.name || b.def.name;
+        var y = 64 + i * 26, x = VW - 14;
+        ctx.globalAlpha = Math.min(1, f.t);
+        var w = ctx.measureText(na + '  ✖  ' + nb).width + 18;
+        ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(x - w, y - 16, w, 22);
+        ctx.fillStyle = b.team === spieler.team ? '#ff6a6a' : '#7dc4ff';
+        ctx.fillText(nb, x - 8, y);
+        var wb = ctx.measureText(nb).width;
+        ctx.fillStyle = '#fff'; ctx.fillText('✖', x - 8 - wb - 8, y);
+        ctx.fillStyle = a ? (a.team === spieler.team ? '#7dc4ff' : '#ff6a6a') : '#ddd';
+        ctx.fillText(na, x - 8 - wb - 28, y);
+        ctx.globalAlpha = 1;
+      });
+    }
     function steuerungZeichnen() {
       if (!touch) return;
       function kreis(x, y, r, f, l) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); if (f) { ctx.fillStyle = f; ctx.fill(); } if (l) { ctx.strokeStyle = l; ctx.lineWidth = 3; ctx.stroke(); } }
@@ -1538,7 +1687,7 @@
         kreis(stickL.sx, stickL.sy, STICK, 'rgba(255,255,255,.12)', 'rgba(255,255,255,.35)');
         var dx = stickL.x - stickL.sx, dy = stickL.y - stickL.sy, l = Math.hypot(dx, dy), f = l > STICK ? STICK / l : 1;
         kreis(stickL.sx + dx * f, stickL.sy + dy * f, 28, 'rgba(255,255,255,.5)');
-      } else { ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.font = '10px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('LAUFEN', VW * 0.18, VH - 40); }
+      } else { ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.font = '14px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('LAUFEN', VW * 0.18, VH - 40); }
       // Angriff
       var a = stickR || { sx: angriffKnopf.x, sy: angriffKnopf.y, x: angriffKnopf.x, y: angriffKnopf.y };
       kreis(a.sx, a.sy, angriffKnopf.r, 'rgba(255,120,60,.25)', 'rgba(255,160,90,.8)');
@@ -1550,17 +1699,17 @@
       kreis(sp.sx, sp.sy, superKnopf.r, bereit ? 'rgba(255,210,63,.4)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.25)');
       ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(sp.sx, sp.sy, superKnopf.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anteil); ctx.stroke();
       if (bereit) { var sx = sp.x - sp.sx, sy = sp.y - sp.sy, sl = Math.hypot(sx, sy), sf = sl > STICK ? STICK / sl : 1; kreis(sp.sx + sx * sf, sp.sy + sy * sf, 20, '#ffd23f'); }
-      ctx.fillStyle = bereit ? '#3a2400' : 'rgba(255,255,255,.6)'; ctx.font = '9px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('SUPER', sp.sx, sp.sy + 4);
+      ctx.fillStyle = bereit ? '#3a2400' : 'rgba(255,255,255,.6)'; ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('SUPER', sp.sx, sp.sy + 4);
       if (spieler.ultraOk) {
         var ub = ultraBereit(spieler), ua = spieler.ultra > 0 ? spieler.ultra / 5 : spieler.ultraLadung / (spieler.def.superKosten * 1.5);
         kreis(ultraKnopf.x, ultraKnopf.y, ultraKnopf.r, ub ? 'rgba(196,106,255,.6)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.3)');
         ctx.strokeStyle = '#c46aff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ultraKnopf.x, ultraKnopf.y, ultraKnopf.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ua); ctx.stroke();
-        ctx.fillStyle = ub ? '#2a0a3a' : 'rgba(255,255,255,.5)'; ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('ULTRA', ultraKnopf.x, ultraKnopf.y + 4);
+        ctx.fillStyle = ub ? '#2a0a3a' : 'rgba(255,255,255,.5)'; ctx.font = '12px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ULTRA', ultraKnopf.x, ultraKnopf.y + 4);
       }
       if (spieler.stufe >= BS.TRICK_AB) {
         var tb = spieler.tricks > 0 && spieler.trickT <= 0;
         kreis(trickKnopf.x, trickKnopf.y, trickKnopf.r, tb ? 'rgba(110,240,138,.55)' : 'rgba(0,0,0,.3)', 'rgba(255,255,255,.3)');
-        ctx.fillStyle = tb ? '#0a3a18' : 'rgba(255,255,255,.5)'; ctx.font = '8px "Press Start 2P", monospace'; ctx.fillText('TRICK', trickKnopf.x, trickKnopf.y + 1);
+        ctx.fillStyle = tb ? '#0a3a18' : 'rgba(255,255,255,.5)'; ctx.font = '12px "Lilita One", sans-serif'; ctx.fillText('TRICK', trickKnopf.x, trickKnopf.y + 1);
         ctx.fillText(spieler.tricks + 'x', trickKnopf.x, trickKnopf.y + 13);
       }
     }
@@ -1615,6 +1764,16 @@
         st.sterne = modus === 'sterne' ? teamSterne(k.team) : modus === 'kopfgeld' ? teamKopf[k.team] : 0;
         return st;
       }
+      // Tabelle für den Ergebnisbildschirm und bester Spieler (MVP) aus dem Gewinnerteam
+      var punkte = function (k) { return k.kos * 3 + k.statSchaden / 250 + k.statTore * 5 + (k.platz === 1 ? 5 : 0); };
+      var kandidaten = kaempfer.filter(function (k) { return royaleArt ? k.platz === 1 : sieger === -1 || k.team === sieger; });
+      if (!kandidaten.length) kandidaten = kaempfer;
+      var mvp = kandidaten.reduce(function (a, b) { return punkte(b) > punkte(a) ? b : a; });
+      var tabelle = kaempfer.map(function (k) {
+        return { n: k.name || k.def.name, kid: k.def.id, skin: k.skin ? k.skin.id : '', team: k.team, kos: k.kos, schaden: Math.round(k.statSchaden), tore: k.statTore, mvp: k === mvp, mensch: k.mensch || 0, weg: !!k.weg };
+      });
+      var fuerAlt = fuer;
+      fuer = function (k) { var st = fuerAlt(k); st.tabelle = tabelle; st.ich = kaempfer.indexOf(k); st.meinTeam = k.team; st.mvp = k === mvp; return st; };
       if (host) {
         var r = {};
         kaempfer.forEach(function (k) { if (k.mensch && k !== spieler) r[k.mensch] = fuer(k); });
@@ -1637,6 +1796,7 @@
       aus = true;
       if (netz && Netz.spiel) Netz.spiel = null;
       removeEventListener('keydown', aufTaste); removeEventListener('keyup', aufTaste); removeEventListener('resize', groesse);
+      removeEventListener('keydown', tabTaste); removeEventListener('keyup', tabTaste);
       root.hidden = true; root.innerHTML = '';
     }
 
@@ -1645,6 +1805,9 @@
     function loop(jetzt) {
       if (aus) return;
       var dt = Math.min(0.05, (jetzt - letzte) / 1000); letzte = jetzt;
+      if (intro > 0) { intro -= dt; zeichnen(); requestAnimationFrame(loop); return; }
+      feedZeit(dt);
+      if (!tabelleEl.hidden) { tabelleT -= dt; if (tabelleT <= 0) { tabelleT = 0.5; tabelleZeigen(true); } }
       if (!pausiert && !ende) {
         if (gast) gastSchritt(dt);
         else schritt(dt);

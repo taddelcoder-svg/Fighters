@@ -145,6 +145,23 @@
     return l[((tag === undefined ? tagNummer() : tag) + h) % l.length];
   }
 
+  // ---------- Modifikatoren: jeden Tag hat jeder Modus vielleicht einen ----------
+  var MODIFIKATOREN = [
+    { id: 'keiner', name: 'Normal', icon: '·', text: 'Keine Besonderheit.' },
+    { id: 'superschnell', name: 'Super-Turbo', icon: '⚡', text: 'Supers laden doppelt so schnell.' },
+    { id: 'heilpilze', name: 'Heilpilze', icon: '🍄', text: 'Überall wachsen Pilze, die 35 % Leben geben.' },
+    { id: 'meteore', name: 'Meteoritenschauer', icon: '☄', text: 'Meteore schlagen ein – auf den roten Kreis achten!' },
+    { id: 'turbo', name: 'Energydrink', icon: '🥤', text: 'Alle laufen 15 % schneller.' }
+  ];
+  function modifikator(id) { for (var i = 0; i < MODIFIKATOREN.length; i++) if (MODIFIKATOREN[i].id === id) return MODIFIKATOREN[i]; return MODIFIKATOREN[0]; }
+  function modifikatorHeute(modus, tag) {
+    if (modus === 'training') return 'keiner';
+    var h = 7; for (var i = 0; i < modus.length; i++) h = h * 31 + modus.charCodeAt(i);
+    var r = zufall(((tag === undefined ? tagNummer() : tag) * 977 + h) % 4294967296)();
+    return r < 0.4 ? 'keiner' : MODIFIKATOREN[1 + Math.floor((r - 0.4) / 0.6 * (MODIFIKATOREN.length - 1))].id;
+  }
+  BS.MODIFIKATOREN = MODIFIKATOREN; BS.modifikator = modifikator; BS.modifikatorHeute = modifikatorHeute;
+
   BS.SKINS = SKINS; BS.skin = skin; BS.umfaerben = umfaerben;
   BS.AUSRUESTUNG = AUSRUESTUNG; BS.teil = teil;
   BS.EMOTES = EMOTES; BS.emote = emote;

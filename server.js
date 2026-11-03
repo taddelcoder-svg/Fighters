@@ -104,7 +104,7 @@ function code() {
   for (;;) { let s = ''; for (let i = 0; i < 4; i++) s += z[Math.floor(Math.random() * z.length)]; if (!raeume.has(s)) return s; }
 }
 function lobby(r) {
-  const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft,
+  const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft, regeln: r.regeln,
     spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe, skin: c.skin })) };
   r.spieler.forEach((c) => senden(c, o));
 }
@@ -133,7 +133,7 @@ function nachricht(c, o) {
     case 'erstellen': {
       verlassen(c);
       c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
-      const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false };
+      const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false, regeln: { mod: 'heute', zeit: 1 } };
       raeume.set(neu.code, neu); c.raum = neu;
       senden(c, { t: 'du', id: c.id });
       lobby(neu);
@@ -154,13 +154,17 @@ function nachricht(c, o) {
     case 'verlassen': verlassen(c); break;
     case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
+    case 'regeln': if (r && r.host === c && !r.laeuft) {
+      const z = +o.zeit; r.regeln = { mod: sauber(o.mod, 16), zeit: z === 0.7 || z === 1.4 ? z : 1 }; lobby(r);
+    } break;
     case 'start': {
       if (!r || r.host !== c || r.laeuft) return;
       if (r.modus === 'training') return senden(c, { t: 'fehler', text: 'Der Trainingsplatz geht nur allein.' });
+      if (r.spieler.length < 2) return senden(c, { t: 'fehler', text: 'Online spielen nur echte Leute – warte, bis mindestens ein Freund im Raum ist.' });
       if (r.modus !== 'royale' && r.modus !== 'duo' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
       r.laeuft = true;
       const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung, team: i % 2 }));
-      r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id }));
+      r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id, regeln: r.regeln }));
       lobby(r);
       break;
     }

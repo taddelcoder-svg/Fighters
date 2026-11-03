@@ -1,4 +1,4 @@
-// Menü von Bravo Stars: Tabs (Spielen, Kämpfer, Shop, Aufgaben, Pokal-Weg), Online-Lobby, Truhen und Ergebnis.
+// Menü von Bravo Stars: Startbildschirm mit Held, Bildschirme für Kämpfer, Shop, Aufgaben, Pokal-Weg, Modi und Freunde, Truhen und Ergebnis.
 (function () {
   // ---------- Spielstand (localStorage bravostars.*) ----------
   var K_POKALE = 'bravostars.pokale', K_WAHL = 'bravostars.wahl', K_MODUS = 'bravostars.modus', K_SIEGE = 'bravostars.siege';
@@ -26,7 +26,6 @@
   if (['leicht', 'normal', 'schwer'].indexOf(schwierigkeit) < 0) schwierigkeit = 'normal';
   if (!BS.KAEMPFER.some(function (k) { return k.id === wahl; })) wahl = 'matteo';
   if (!BS.MODI.some(function (m) { return m.id === modus; })) modus = 'sterne';
-  var tab = 'spielen';
 
   function speichern() {
     Pixel.set(K_POKALE, JSON.stringify(pokale)); Pixel.set(K_SIEGE, siege); Pixel.set(K_MUENZEN, muenzen);
@@ -48,7 +47,10 @@
 
   // ---------- DOM-Helfer ----------
   var menue = document.getElementById('menue'), ergebnis = document.getElementById('ergebnis'), seite = document.getElementById('seite');
-  var tabsEl = document.getElementById('tabs'), gesamtEl = document.getElementById('gesamt'), tonKnopf = document.getElementById('ton');
+  var homeEl = document.getElementById('home'), screenEl = document.getElementById('screen'), screenTitel = document.getElementById('screentitel');
+  var profilEl = document.getElementById('profil'), waehrungEl = document.getElementById('waehrung'), tonKnopf = document.getElementById('ton');
+  var leisteEl = document.getElementById('leiste'), heldEl = document.getElementById('held');
+  var freundeKnopf = document.getElementById('freunde'), modusKnopf = document.getElementById('moduswahl'), losKnopf = document.getElementById('los');
   var truheEl = document.getElementById('truhe');
   function el(tag, klasse, text) { var e = document.createElement(tag); if (klasse) e.className = klasse; if (text !== undefined) e.textContent = text; return e; }
   function knopf(text, klasse, fn) { var b = el('button', 'knopf ' + (klasse || ''), text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; }
@@ -61,24 +63,25 @@
   }
   function klick() { Pixel.sfx.tone(700, 0.05, 'square', 0.04); }
   function kasse() { Pixel.sfx.tone(880, 0.06, 'square', 0.05); Pixel.sfx.tone(1320, 0.1, 'square', 0.05, null, 0.06); }
-
-  // ---------- Kopf ----------
-  function kopfAufbauen() {
-    var r = BS.rang(konto.rang);
-    gesamtEl.innerHTML = '';
-    gesamtEl.appendChild(el('span', '', '🏆 ' + gesamt()));
-    gesamtEl.appendChild(el('span', '', '🪙 ' + muenzen));
-    var rs = el('span', 'rangchip', '◆ ' + r.name); rs.style.color = r.farbe; gesamtEl.appendChild(rs);
-    tabsEl.innerHTML = '';
-    var offen = offeneSachen();
-    [['spielen', '▶ Spielen'], ['kaempfer', '👤 Kämpfer'], ['shop', '🛒 Shop'], ['aufgaben', '✔ Aufgaben'], ['weg', '🏆 Pokal-Weg']].forEach(function (t) {
-      var b = el('button', 'tab' + (tab === t[0] ? ' an' : ''), t[1]); b.type = 'button';
-      if (offen[t[0]]) b.appendChild(el('i', 'punkt', String(offen[t[0]])));
-      b.addEventListener('click', function () { tab = t[0]; klick(); aufbauen(); seite.scrollIntoView({ block: 'start' }); });
-      tabsEl.appendChild(b);
-    });
+  function modusVon(id) { return BS.MODI.filter(function (m) { return m.id === id; })[0] || BS.MODI[0]; }
+  // Kleine Kartenvorschau aus dem Textraster
+  var FARBEN = { '.': '#d2b276', '#': '#8a5a34', b: '#3a8a3e', w: '#3d8fd6', K: '#b8792e' };
+  function minikarte(m, name) {
+    var k = BS.karte(m, name), z = k.zeilen, s = 4;
+    var c = document.createElement('canvas'); c.width = z[0].length * s; c.height = z.length * s; c.className = 'minikarte';
+    var x = c.getContext('2d');
+    z.forEach(function (zeile, y) { for (var i = 0; i < zeile.length; i++) { x.fillStyle = FARBEN[zeile[i]] || FARBEN['.']; x.fillRect(i * s, y * s, s, s); } });
+    return c;
   }
-  // Rote Punkte an den Tabs: was kann man abholen?
+
+  // ---------- Bildschirme ----------
+  var screen = '';   // '' = Startbildschirm
+  var TITEL = { kaempfer: 'Kämpfer', shop: 'Shop', aufgaben: 'Tagesaufgaben', weg: 'Pokal-Weg', modi: 'Modus wählen', freunde: 'Mit Freunden spielen' };
+  function oeffnen(s) { screen = s; klick(); aufbauen(); screenEl.scrollTop = 0; }
+  document.getElementById('zurueck').addEventListener('click', function () { oeffnen(''); });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menue.hidden && screen && truheEl.hidden) oeffnen(''); });
+
+  function naechsteStation() { var g = gesamt(); for (var i = 0; i < BS.WEG.length; i++) if (BS.WEG[i].pokale > g) return BS.WEG[i]; return null; }
   function offeneSachen() {
     var o = {};
     var weg = BS.WEG.filter(function (w, i) { return gesamt() >= w.pokale && konto.weg.indexOf(i) < 0; }).length; if (weg) o.weg = weg;
@@ -87,129 +90,204 @@
     return o;
   }
 
+  function kopfAufbauen() {
+    var r = BS.rang(konto.rang), g = gesamt(), n = naechsteStation(), vorige = 0;
+    BS.WEG.forEach(function (w) { if (w.pokale <= g) vorige = w.pokale; });
+    profilEl.innerHTML = '';
+    var emblem = el('span', 'emblem', '◆'); emblem.style.color = r.farbe; profilEl.appendChild(emblem);
+    var pt = el('span', 'pt');
+    pt.appendChild(el('b', '', meinName || 'Spieler'));
+    var zeile = el('span', 'pz'); zeile.appendChild(el('span', 'pok', '🏆 ' + g)); var rn = el('span', 'rn', r.name); rn.style.color = r.farbe; zeile.appendChild(rn); pt.appendChild(zeile);
+    var bar = el('i', 'pbar'), fill = el('b'); fill.style.width = (n ? Math.round((g - vorige) / (n.pokale - vorige) * 100) : 100) + '%'; bar.appendChild(fill); pt.appendChild(bar);
+    profilEl.appendChild(pt);
+    waehrungEl.innerHTML = '';
+    var m = el('span', 'muenzchip'); m.appendChild(el('i', 'muenze')); m.appendChild(el('b', '', String(muenzen))); waehrungEl.appendChild(m);
+  }
+  profilEl.addEventListener('click', function () { oeffnen('weg'); });
+
+  function homeAufbauen() {
+    var offen = offeneSachen();
+    leisteEl.innerHTML = '';
+    [['shop', '🛒', 'Shop'], ['kaempfer', '👤', 'Kämpfer'], ['aufgaben', '✔', 'Aufgaben'], ['weg', '🏆', 'Pokal-Weg']].forEach(function (x) {
+      var b = el('button', 'seitenknopf'); b.type = 'button';
+      b.appendChild(el('span', 'si', x[1])); b.appendChild(el('span', 'st', x[2]));
+      if (offen[x[0]]) b.appendChild(el('i', 'punkt', String(offen[x[0]])));
+      b.addEventListener('click', function () { oeffnen(x[0]); });
+      leisteEl.appendChild(b);
+    });
+    // Held auf der Bühne
+    var d = BS.kaempfer(wahl);
+    heldEl.innerHTML = ''; heldEl.style.setProperty('--farbe', d.farbe);
+    var podest = el('div', 'podest');
+    var fig = el('button', 'figur'); fig.type = 'button'; fig.setAttribute('aria-label', 'Kämpfer wechseln');
+    fig.appendChild(bild(d, 'super', skinVon(wahl)));
+    fig.addEventListener('click', function () { oeffnen('kaempfer'); });
+    podest.appendChild(fig); heldEl.appendChild(podest);
+    var schild = el('div', 'namensschild');
+    schild.appendChild(el('span', 'stufenkreis', String(stufe(wahl))));
+    var nt = el('span', 'nt'); nt.appendChild(el('b', '', d.name)); nt.appendChild(el('small', '', '🏆 ' + (pokale[wahl] || 0) + (skinVon(wahl) ? ' · ' + BS.skin(wahl, skinVon(wahl)).name : ' · ' + d.titel)));
+    schild.appendChild(nt);
+    heldEl.appendChild(schild);
+    // Modus-Banner
+    var m = modusVon(modus), mo = BS.modifikator(online ? (online.regeln && online.regeln.mod !== 'heute' ? online.regeln.mod : BS.modifikatorHeute(modus)) : BS.modifikatorHeute(modus));
+    modusKnopf.innerHTML = '';
+    modusKnopf.appendChild(minikarte(modus, BS.karteHeute(modus)));
+    var mt = el('span', 'mbt');
+    mt.appendChild(el('small', '', online ? 'Raum ' + online.code : rangspiel && rangModusOk(modus) ? '◆ Rangspiel' : 'Modus'));
+    mt.appendChild(el('b', '', m.icon + ' ' + m.name));
+    mt.appendChild(el('span', 'mk', BS.KARTEN_NAMEN[BS.karteHeute(modus)] + (mo.id !== 'keiner' ? ' · ' + mo.icon + ' ' + mo.name : '')));
+    modusKnopf.appendChild(mt);
+    modusKnopf.disabled = !!(online && !istHost());
+    freundeKnopf.innerHTML = '';
+    freundeKnopf.appendChild(el('span', '', '👥'));
+    freundeKnopf.appendChild(el('b', '', online ? online.spieler.length + ' im Raum' : 'Mit Freunden'));
+    freundeKnopf.classList.toggle('aktiv', !!online);
+    // Spielen-Knopf
+    losKnopf.disabled = false; losKnopf.className = 'spielenknopf';
+    if (online) {
+      if (istHost()) { losKnopf.textContent = 'START'; losKnopf.disabled = online.spieler.length < 2 || (m.team && online.spieler.length > 6); }
+      else { losKnopf.textContent = online.laeuft ? 'LÄUFT …' : 'WARTEN …'; losKnopf.disabled = true; }
+    } else losKnopf.textContent = 'SPIELEN';
+  }
+  modusKnopf.addEventListener('click', function () { oeffnen('modi'); });
+  freundeKnopf.addEventListener('click', function () { oeffnen('freunde'); });
+  losKnopf.addEventListener('click', starten);
+
   function aufbauen() {
     kopfAufbauen();
+    homeEl.hidden = !!screen; screenEl.hidden = !screen;
+    if (!screen) { homeAufbauen(); return; }
+    screenTitel.textContent = TITEL[screen];
     seite.innerHTML = '';
-    ({ spielen: seiteSpielen, kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg })[tab]();
+    ({ kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg, modi: seiteModi, freunde: seiteFreunde })[screen]();
   }
 
-  // ---------- Tab: Spielen ----------
+  // ---------- Bildschirm: Modi ----------
   var online = null, onlineStatus = '', warteInit = null, imSpiel = false;
   var meinName = Pixel.get('bravostars.name', '') || Pixel.get('sl_name', '');
   function istHost() { return online && online.host === Netz.ich; }
 
-  function seiteSpielen() {
-    var d = BS.kaempfer(wahl);
-    var mini = el('div', 'mini'); mini.style.setProperty('--farbe', d.farbe);
-    mini.appendChild(bild(d, 'super', skinVon(wahl)));
-    var mt = el('div', 'mt');
-    mt.appendChild(el('b', '', d.name));
-    mt.appendChild(el('span', '', 'Stufe ' + stufe(wahl) + ' · 🏆 ' + (pokale[wahl] || 0) + (skinVon(wahl) ? ' · ' + BS.skin(wahl, skinVon(wahl)).name : '')));
-    mini.appendChild(mt);
-    mini.appendChild(knopf('Wechseln', '', function () { tab = 'kaempfer'; aufbauen(); }));
-    seite.appendChild(mini);
-
-    seite.appendChild(el('h3', '', 'Modus'));
-    var modi = el('div', 'modi');
+  function seiteModi() {
     var gesperrt = online && !istHost();
+    if (!online) {
+      var opt = el('div', 'optionen');
+      // Bot-Stärke
+      var sb = el('div', 'option');
+      sb.appendChild(el('b', '', '🤖 Bots'));
+      var gruppe = el('div', 'segment');
+      [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']].forEach(function (x) {
+        var b = el('button', schwierigkeit === x[0] ? 'an' : '', x[1]); b.type = 'button';
+        b.setAttribute('aria-pressed', schwierigkeit === x[0] ? 'true' : 'false');
+        b.addEventListener('click', function () { schwierigkeit = x[0]; Pixel.set('bravostars.schwierigkeit', schwierigkeit); klick(); aufbauen(); });
+        gruppe.appendChild(b);
+      });
+      sb.appendChild(gruppe); opt.appendChild(sb);
+      // Rangspiel
+      var r = BS.rang(konto.rang);
+      var rb = el('div', 'option');
+      rb.appendChild(el('b', '', '◆ Rangspiel'));
+      var schalter = el('button', 'schalter' + (rangspiel ? ' an' : ''), rangspiel ? 'AN' : 'AUS'); schalter.type = 'button';
+      schalter.setAttribute('aria-pressed', rangspiel ? 'true' : 'false');
+      schalter.addEventListener('click', function () { rangspiel = !rangspiel; Pixel.set('bravostars.rangspiel', rangspiel ? '1' : '0'); klick(); aufbauen(); });
+      rb.appendChild(schalter);
+      var rn = el('small', 'rangname', r.name + ' · ' + konto.rang + ' Punkte'); rn.style.color = r.farbe; rb.appendChild(rn);
+      opt.appendChild(rb);
+      seite.appendChild(opt);
+      seite.appendChild(el('p', 'hilfe', rangspiel ? 'Rangspiel: nur Team-Modi, starke Bots, Sieg +20 / Niederlage −12 Rangpunkte, jeder neue Rang bringt Münzen.' : 'Neue Karten und Modifikatoren in ' + bisMorgen() + '.'));
+    } else seite.appendChild(el('p', 'hilfe', gesperrt ? 'Nur der Host wählt den Modus.' : 'Online spielen nur echte Leute – keine Bots.'));
+
+    var gitter = el('div', 'events');
     BS.MODI.forEach(function (m) {
       if (online && m.training) return;
-      var b = el('button', 'modus' + (m.id === modus ? ' an' : '') + (gesperrt ? ' zu' : '')); b.type = 'button';
+      var heute = BS.karteHeute(m.id), mo = BS.modifikator(BS.modifikatorHeute(m.id));
+      var b = el('button', 'event' + (m.id === modus ? ' an' : '') + (gesperrt ? ' zu' : '') + (rangspiel && !online && !rangModusOk(m.id) ? ' grau' : '')); b.type = 'button';
       b.setAttribute('aria-pressed', m.id === modus ? 'true' : 'false');
-      b.appendChild(el('span', 'mi', m.icon));
-      var t = el('span', 'mt'); t.appendChild(el('b', '', m.name));
-      t.appendChild(el('small', '', m.text));
-      t.appendChild(el('em', 'karte', '🗺 Heute: ' + BS.KARTEN_NAMEN[BS.karteHeute(m.id)]));
-      b.appendChild(t);
+      b.style.setProperty('--ev', m.farbe || '#4a3488');
+      var kopf = el('div', 'evkopf'); kopf.appendChild(el('span', 'evicon', m.icon)); kopf.appendChild(el('b', '', m.name));
+      if (m.team) kopf.appendChild(el('span', 'evtag', m.training ? 'Solo' : '3 gegen 3'));
+      else kopf.appendChild(el('span', 'evtag', m.id === 'duo' ? '2er-Teams' : 'Jeder gegen jeden'));
+      b.appendChild(kopf);
+      var mitte = el('div', 'evmitte');
+      mitte.appendChild(minikarte(m.id, heute));
+      var info = el('div', 'evinfo');
+      info.appendChild(el('span', 'evkarte', '🗺 ' + BS.KARTEN_NAMEN[heute]));
+      if (mo.id !== 'keiner') { var mm = el('span', 'evmod', mo.icon + ' ' + mo.name); mm.title = mo.text; info.appendChild(mm); info.appendChild(el('small', '', mo.text)); }
+      info.appendChild(el('small', '', m.text));
+      mitte.appendChild(info);
+      b.appendChild(mitte);
       b.addEventListener('click', function () {
         if (gesperrt) return;
         modus = m.id; Pixel.set(K_MODUS, modus); klick();
         if (online) Netz.senden({ t: 'modus', modus: modus });
-        aufbauen();
+        oeffnen('');
       });
-      modi.appendChild(b);
+      gitter.appendChild(b);
     });
-    seite.appendChild(modi);
-
-    // Bot-Stärke
-    if (!online || istHost()) {
-      var sb = el('div', 'staerke');
-      sb.appendChild(el('b', '', '🤖 Bots:'));
-      [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']].forEach(function (x) {
-        var b = knopf(x[1], schwierigkeit === x[0] ? 'gelb' : '', function () { schwierigkeit = x[0]; Pixel.set('bravostars.schwierigkeit', schwierigkeit); klick(); aufbauen(); });
-        b.setAttribute('aria-pressed', schwierigkeit === x[0] ? 'true' : 'false');
-        sb.appendChild(b);
-      });
-      if (rangspiel && rangModusOk(modus) && !online) sb.appendChild(el('small', '', 'Im Rangspiel sind die Bots immer stark.'));
-      seite.appendChild(sb);
-    }
-
-    // Rangspiel
-    if (!online) {
-      var r = BS.rang(konto.rang);
-      var rb = el('div', 'rangbox' + (rangspiel ? ' an' : ''));
-      var schalter = el('button', 'schalter' + (rangspiel ? ' an' : ''), rangspiel ? 'AN' : 'AUS'); schalter.type = 'button';
-      schalter.setAttribute('aria-pressed', rangspiel ? 'true' : 'false');
-      schalter.addEventListener('click', function () { rangspiel = !rangspiel; Pixel.set('bravostars.rangspiel', rangspiel ? '1' : '0'); klick(); aufbauen(); });
-      var rt = el('div', 'rt');
-      rt.appendChild(el('b', '', '◆ Rangspiel'));
-      var rn = el('span', 'rangname', r.name + ' · ' + konto.rang + ' Punkte'); rn.style.color = r.farbe; rt.appendChild(rn);
-      rt.appendChild(el('small', '', rangModusOk(modus) ? 'Stärkere Bots. Sieg +20, Niederlage −12 Rangpunkte. Jeder neue Rang bringt Münzen.' : 'Nur in Team-Modi (3 gegen 3) – wähl oben einen davon.'));
-      rb.appendChild(schalter); rb.appendChild(rt);
-      seite.appendChild(rb);
-    }
-
-    seite.appendChild(el('h3', '', 'Online mit Freunden'));
-    var onl = el('div', 'online'); seite.appendChild(onl);
-    onlineAufbauen(onl);
-    var los = knopf('Kämpfen!', 'gelb gross-knopf', starten); los.id = 'los';
-    if (online) {
-      if (istHost()) { los.textContent = 'Online starten!'; los.disabled = BS.MODI.filter(function (m) { return m.id === modus; })[0].team && online.spieler.length > 6; }
-      else { los.textContent = online.laeuft ? 'Runde läuft gerade …' : 'Warte auf den Host …'; los.disabled = true; }
-    } else if (rangspiel && rangModusOk(modus)) los.textContent = 'Rangspiel starten!';
-    seite.appendChild(los);
-    seite.appendChild(el('p', 'hilfe', 'PC: WASD laufen · Maus zielen · Klick angreifen · Leertaste/Rechtsklick Super · Q Trick · R Ultra · 1–9 Emotes · Esc aufgeben'));
-    seite.appendChild(el('p', 'hilfe', 'Handy/Tablet: links ziehen = laufen · rechts ziehen = zielen, loslassen = schießen (tippen zielt automatisch) · gelb = Super · grün = Trick · lila = Ultra · 💬 = Emotes'));
+    seite.appendChild(gitter);
   }
 
-  function onlineAufbauen(box) {
+  // ---------- Bildschirm: Mit Freunden ----------
+  function seiteFreunde() {
+    var box = el('div', 'online');
+    seite.appendChild(box);
     if (!online) {
+      box.appendChild(el('p', 'tipp', 'Online spielen nur echte Leute – keine Bots. Erstell einen Raum und schick den Code an deine Freunde (mind. 2 Spieler).'));
       var z1 = el('div', 'zeile');
       var name = el('input'); name.type = 'text'; name.maxLength = 16; name.placeholder = 'Dein Name'; name.value = meinName; name.setAttribute('aria-label', 'Dein Name');
-      name.addEventListener('input', function () { meinName = name.value.trim(); Pixel.set('bravostars.name', meinName); });
+      name.addEventListener('input', function () { meinName = name.value.trim(); Pixel.set('bravostars.name', meinName); kopfAufbauen(); });
       z1.appendChild(name);
-      z1.appendChild(knopf('Raum erstellen', 'gelb', function () { if (BS.MODI.filter(function (m) { return m.id === modus; })[0].training) { modus = 'sterne'; } verbinden({ t: 'erstellen', modus: modus }); }));
+      z1.appendChild(knopf('Raum erstellen', 'gelb', function () { if (modusVon(modus).training) modus = 'sterne'; verbinden({ t: 'erstellen', modus: modus }); }));
       var z2 = el('div', 'zeile');
       var code = el('input', 'code'); code.type = 'text'; code.maxLength = 4; code.placeholder = 'CODE'; code.setAttribute('aria-label', 'Raum-Code');
       code.autocapitalize = 'characters'; code.autocomplete = 'off';
       var beitreten = function () { if (code.value.trim().length === 4) verbinden({ t: 'beitreten', code: code.value.trim().toUpperCase() }); else { onlineStatus = 'Der Code hat 4 Buchstaben.'; aufbauen(); } };
       code.addEventListener('keydown', function (e) { if (e.key === 'Enter') beitreten(); });
-      z2.appendChild(code); z2.appendChild(knopf('Beitreten', '', beitreten));
+      z2.appendChild(code); z2.appendChild(knopf('Beitreten', 'blau', beitreten));
       box.appendChild(z1); box.appendChild(z2);
-      box.appendChild(el('p', 'status', onlineStatus || 'Erstell einen Raum und gib den Code an deine Freunde – freie Plätze übernehmen Bots.'));
+      if (onlineStatus) box.appendChild(el('p', 'status', onlineStatus));
       return;
     }
-    var kopf = el('div', 'zeile');
-    kopf.appendChild(el('span', '', 'Raum')); kopf.appendChild(el('span', 'raumcode', online.code));
+    var kopf = el('div', 'zeile raumkopf');
+    kopf.appendChild(el('span', '', 'Raum-Code')); kopf.appendChild(el('span', 'raumcode', online.code));
     var raus = knopf('Verlassen', 'rot', function () { Netz.senden({ t: 'verlassen' }); online = null; onlineStatus = ''; aufbauen(); });
     raus.style.marginLeft = 'auto'; kopf.appendChild(raus);
     box.appendChild(kopf);
-    var m = BS.MODI.filter(function (x) { return x.id === modus; })[0] || BS.MODI[0];
+    var m = modusVon(modus);
     var ul = el('ul');
     online.spieler.forEach(function (sp, i) {
       var li = el('li', sp.id === Netz.ich ? 'ich' : '');
       var d = BS.kaempfer(sp.kaempfer);
       li.appendChild(bild(d, 'normal', sp.skin));
       li.appendChild(el('span', '', (sp.id === online.host ? '👑 ' : '') + sp.name + (sp.id === Netz.ich ? ' (du)' : '')));
-      li.appendChild(el('span', '', '· ' + d.name + ' (St. ' + (sp.stufe || 1) + ')'));
+      li.appendChild(el('span', 'klein', d.name + ' · St. ' + (sp.stufe || 1)));
       if (m.team) li.appendChild(el('span', 'tm t' + (i % 2), i % 2 ? 'Rot' : 'Blau'));
       else if (m.id === 'duo') li.appendChild(el('span', 'tm t' + (Math.floor(i / 2) % 2), 'Duo ' + (Math.floor(i / 2) + 1)));
       ul.appendChild(li);
     });
     box.appendChild(ul);
     var plaetze = m.team ? 6 : 8;
-    box.appendChild(el('p', 'tipp', 'Gib deinen Freunden den Code ' + online.code + '. ' + online.spieler.length + ' von ' + plaetze + ' Plätzen belegt, den Rest füllen Bots.'));
+    box.appendChild(el('p', 'tipp', online.spieler.length + ' von ' + plaetze + ' Plätzen · ' + (online.spieler.length < 2 ? 'Warte auf mindestens einen Freund.' : 'Keine Bots – nur ihr.')));
+    // Raumregeln (nur Host ändert sie)
+    var rg = online.regeln || { mod: 'heute', zeit: 1 };
+    var regeln = el('div', 'optionen');
+    var o1 = el('div', 'option'); o1.appendChild(el('b', '', 'Modifikator'));
+    var sel = el('select'); sel.disabled = !istHost(); sel.setAttribute('aria-label', 'Modifikator');
+    [{ id: 'heute', name: 'Wie heute (' + BS.modifikator(BS.modifikatorHeute(modus)).name + ')', icon: '📅' }].concat(BS.MODIFIKATOREN).forEach(function (x) {
+      var op = el('option', '', (x.icon || '') + ' ' + x.name); op.value = x.id; if (rg.mod === x.id) op.selected = true; sel.appendChild(op);
+    });
+    sel.addEventListener('change', function () { Netz.senden({ t: 'regeln', mod: sel.value, zeit: rg.zeit }); });
+    o1.appendChild(sel); regeln.appendChild(o1);
+    var o2 = el('div', 'option'); o2.appendChild(el('b', '', 'Spielzeit'));
+    var seg = el('div', 'segment');
+    [[0.7, 'Kurz'], [1, 'Normal'], [1.4, 'Lang']].forEach(function (x) {
+      var b = el('button', rg.zeit === x[0] ? 'an' : '', x[1]); b.type = 'button'; b.disabled = !istHost();
+      b.addEventListener('click', function () { Netz.senden({ t: 'regeln', mod: rg.mod, zeit: x[0] }); });
+      seg.appendChild(b);
+    });
+    o2.appendChild(seg); regeln.appendChild(o2);
+    box.appendChild(regeln);
     if (onlineStatus) box.appendChild(el('p', 'status', onlineStatus));
+    box.appendChild(knopf(istHost() ? 'Zurück und START drücken' : 'Zurück zum Start', 'gelb', function () { oeffnen(''); }));
   }
   function meineDaten() { return { kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl) }; }
   function verbinden(nachricht) {
@@ -225,17 +303,20 @@
     if (!ich) return;
     modus = o.modus; wahl = BS.kaempfer(ich.kaempfer).id;
     menue.hidden = true; ergebnis.hidden = true; imSpiel = true;
+    var rg = o.regeln || {};
     var netz = o.host === Netz.ich ? { rolle: 'host', ich: Netz.ich, spieler: o.spieler, senden: Netz.senden }
       : { rolle: 'gast', ich: Netz.ich, init: o.init, senden: Netz.senden };
-    BS.starten({ kaempfer: wahl, modus: modus, netz: netz, emotes: konto.emotes, karte: o.karte, schwierigkeit: schwierigkeit }, zeigeErgebnis);
+    BS.starten({ kaempfer: wahl, modus: modus, netz: netz, emotes: konto.emotes, karte: o.karte,
+      modifikator: rg.mod && rg.mod !== 'heute' ? rg.mod : '', zeitFaktor: rg.zeit || 1 }, zeigeErgebnis);
   }
   Netz.bei(function (o) {
     if (o.t === 'lobby') {
       online = o;
       if (!istHost()) modus = o.modus;
       if (!imSpiel && ergebnis.hidden) aufbauen();
-    } else if (o.t === 'fehler') { onlineStatus = o.text; if (!imSpiel) aufbauen(); }
+    } else if (o.t === 'fehler') { onlineStatus = o.text; if (!imSpiel) { if (!screen) screen = 'freunde'; aufbauen(); } }
     else if (o.t === 'start') {
+      onlineStatus = '';
       if (o.host === Netz.ich) onlineStarten(o);
       else { warteInit = o; menue.hidden = true; ergebnis.hidden = true; }
     } else if (o.t === 'daten' && o.d && o.d.t === 'init' && warteInit) {
@@ -255,7 +336,7 @@
     laeuftRang = rangspiel && rangModusOk(modus);
     var opt = { kaempfer: wahl, modus: modus, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), emotes: konto.emotes, rang: laeuftRang, schwierigkeit: schwierigkeit };
     var start = function () { BS.starten(opt, zeigeErgebnis); };
-    if (document.fonts && document.fonts.load) document.fonts.load('10px "Press Start 2P"').then(start, start); else start();
+    if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('10px "Press Start 2P"'), document.fonts.load('10px "Lilita One"')]).then(start, start); else start();
   }
 
   // ---------- Tab: Kämpfer ----------
@@ -612,9 +693,33 @@
       if (rangText) box.appendChild(el('p', 'pokdelta', rangText));
       extra.forEach(function (t) { box.appendChild(el('p', 'stat bonus', t)); });
     }
+    if (e.tabelle) {
+      var mvp = e.tabelle.filter(function (z) { return z.mvp; })[0];
+      if (mvp) {
+        var mb = el('div', 'mvp' + (e.mvp ? ' ich' : ''));
+        mb.appendChild(bild(BS.kaempfer(mvp.kid), 'super', mvp.skin));
+        var mt = el('span'); mt.appendChild(el('small', '', '⭐ BESTER SPIELER')); mt.appendChild(el('b', '', e.mvp ? 'Du!' : mvp.n));
+        mt.appendChild(el('small', '', mvp.kos + ' K.o.s · ' + mvp.schaden + ' Schaden' + (mvp.tore ? ' · ' + mvp.tore + ' Tore' : '')));
+        mb.appendChild(mt); box.appendChild(mb);
+      }
+      var tab = el('div', 'endtabelle');
+      var teams = {}; e.tabelle.forEach(function (z, i) { z.i = i; (teams[z.team] = teams[z.team] || []).push(z); });
+      Object.keys(teams).sort(function (a, b) { return (+a === e.meinTeam ? -1 : 0) - (+b === e.meinTeam ? -1 : 0); }).forEach(function (t) {
+        var bl = el('div', 'tblock ' + (+t === e.meinTeam ? 'eigen' : 'fremd'));
+        teams[t].sort(function (a, b) { return b.kos - a.kos; }).forEach(function (z) {
+          var r = el('div', 'tzeile' + (z.i === e.ich ? ' ich' : '') + (z.weg ? ' weg' : ''));
+          r.appendChild(bild(BS.kaempfer(z.kid), 'normal', z.skin));
+          r.appendChild(el('b', '', (z.mvp ? '⭐ ' : '') + (z.i === e.ich ? 'Du' : z.n)));
+          r.appendChild(el('span', '', '✖ ' + z.kos + '  💥 ' + z.schaden + (z.tore ? '  ⚽ ' + z.tore : '')));
+          bl.appendChild(r);
+        });
+        tab.appendChild(bl);
+      });
+      box.appendChild(tab);
+    }
     var k = el('div', 'knoepfe');
     var nochmal = knopf(online ? 'Nochmal (alle)' : 'Nochmal', 'gelb', starten);
-    var zur = knopf(online ? 'Zur Lobby' : 'Zum Menü', '', function () { ergebnis.hidden = true; menue.hidden = false; tab = 'spielen'; aufbauen(); });
+    var zur = knopf(online ? 'Zur Lobby' : 'Zum Menü', '', function () { ergebnis.hidden = true; menue.hidden = false; screen = ''; aufbauen(); });
     if (online && !istHost()) nochmal.hidden = true;
     k.appendChild(nochmal); k.appendChild(zur); box.appendChild(k);
     if (online && !istHost()) box.appendChild(el('p', 'stat', 'Wenn der Host nochmal startet, geht es automatisch los.'));
