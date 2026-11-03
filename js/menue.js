@@ -22,6 +22,8 @@
   if (pokale.doppeldate) { pokale.damon = (pokale.damon || 0) + pokale.doppeldate; pokale.moritz = (pokale.moritz || 0) + pokale.doppeldate; delete pokale.doppeldate; }
 
   var wahl = Pixel.get(K_WAHL, 'matteo'), modus = Pixel.get(K_MODUS, 'sterne'), rangspiel = Pixel.get('bravostars.rangspiel', '0') === '1';
+  var schwierigkeit = Pixel.get('bravostars.schwierigkeit', 'normal');
+  if (['leicht', 'normal', 'schwer'].indexOf(schwierigkeit) < 0) schwierigkeit = 'normal';
   if (!BS.KAEMPFER.some(function (k) { return k.id === wahl; })) wahl = 'matteo';
   if (!BS.MODI.some(function (m) { return m.id === modus; })) modus = 'sterne';
   var tab = 'spielen';
@@ -129,6 +131,19 @@
     });
     seite.appendChild(modi);
 
+    // Bot-Stärke
+    if (!online || istHost()) {
+      var sb = el('div', 'staerke');
+      sb.appendChild(el('b', '', '🤖 Bots:'));
+      [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']].forEach(function (x) {
+        var b = knopf(x[1], schwierigkeit === x[0] ? 'gelb' : '', function () { schwierigkeit = x[0]; Pixel.set('bravostars.schwierigkeit', schwierigkeit); klick(); aufbauen(); });
+        b.setAttribute('aria-pressed', schwierigkeit === x[0] ? 'true' : 'false');
+        sb.appendChild(b);
+      });
+      if (rangspiel && rangModusOk(modus) && !online) sb.appendChild(el('small', '', 'Im Rangspiel sind die Bots immer stark.'));
+      seite.appendChild(sb);
+    }
+
     // Rangspiel
     if (!online) {
       var r = BS.rang(konto.rang);
@@ -212,7 +227,7 @@
     menue.hidden = true; ergebnis.hidden = true; imSpiel = true;
     var netz = o.host === Netz.ich ? { rolle: 'host', ich: Netz.ich, spieler: o.spieler, senden: Netz.senden }
       : { rolle: 'gast', ich: Netz.ich, init: o.init, senden: Netz.senden };
-    BS.starten({ kaempfer: wahl, modus: modus, netz: netz, emotes: konto.emotes, karte: o.karte }, zeigeErgebnis);
+    BS.starten({ kaempfer: wahl, modus: modus, netz: netz, emotes: konto.emotes, karte: o.karte, schwierigkeit: schwierigkeit }, zeigeErgebnis);
   }
   Netz.bei(function (o) {
     if (o.t === 'lobby') {
@@ -238,7 +253,7 @@
     Pixel.sfx.tone(523, 0.08, 'square', 0.06); Pixel.sfx.tone(784, 0.12, 'square', 0.06, null, 0.08);
     menue.hidden = true; ergebnis.hidden = true;
     laeuftRang = rangspiel && rangModusOk(modus);
-    var opt = { kaempfer: wahl, modus: modus, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), emotes: konto.emotes, rang: laeuftRang };
+    var opt = { kaempfer: wahl, modus: modus, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), emotes: konto.emotes, rang: laeuftRang, schwierigkeit: schwierigkeit };
     var start = function () { BS.starten(opt, zeigeErgebnis); };
     if (document.fonts && document.fonts.load) document.fonts.load('10px "Press Start 2P"').then(start, start); else start();
   }

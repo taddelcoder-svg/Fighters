@@ -25,6 +25,13 @@
 
     var modus = opt.modus, duo = modus === 'duo', royaleArt = modus === 'royale' || duo, team = !royaleArt;
     var training = modus === 'training', rangspiel = !!opt.rang;
+    // Bot-Stärke: Leicht / Normal / Schwer (Rangspiel ist immer Schwer und noch etwas besser)
+    var STAERKE = {
+      leicht: { fehler: 0.42, takt: 1.9, vorhalt: 0, sicht: 7, denk: 0.75, stufe: -1.5, schaden: 0.7, seite: 0.35, super: 0.35, trick: 0.15 },
+      normal: { fehler: 0.26, takt: 1.4, vorhalt: 0.3, sicht: 8.5, denk: 0.5, stufe: -0.8, schaden: 0.85, seite: 0.5, super: 0.65, trick: 0.3 },
+      schwer: { fehler: 0.12, takt: 1, vorhalt: 0.7, sicht: 11, denk: 0.35, stufe: 0, schaden: 1, seite: 0.7, super: 1, trick: 0.6 }
+    };
+    var ks = STAERKE[rangspiel ? 'schwer' : opt.schwierigkeit] || STAERKE.normal;
     // Online: der Host rechnet alles und schickt 20x pro Sekunde den Stand, Gäste schicken nur Eingaben
     var netz = opt.netz || null, host = !!(netz && netz.rolle === 'host'), gast = !!(netz && netz.rolle === 'gast');
     var ev = [];   // Ereignisse (Effekte, Zahlen, Töne, kaputte Wände) seit dem letzten Stand
@@ -125,7 +132,7 @@
       return k;
     }
 
-    function botStufe(s) { return klemm(Math.round((s || 1) + rnd(-1.2, 0.8) + (rangspiel ? 1 : 0)), 1, BS.MAX_STUFE); }
+    function botStufe(s) { return klemm(Math.round((s || 1) + rnd(-1.2, 0.8) + (rangspiel ? 1 : ks.stufe)), 1, BS.MAX_STUFE); }
     // Bots bekommen manchmal einen Skin und ab Stufe 7 zufällige Ausrüstung
     function botMehr(def, st) {
       var l = BS.SKINS[def.id] || [], m = {};
@@ -300,6 +307,7 @@
       if (ziel.tot || ziel.schild > 0 || (ziel.dash && ziel.dash.unverwundbar)) return 0;
       if (von && von.doppelt) { menge *= 2; von.doppelt = false; }
       if (von && von.energie) menge *= 1 + von.energie * 0.1;
+      if (von && von.ki && !rangspiel && (ziel.spieler || ziel.mensch)) menge *= ks.schaden;   // Bots treffen Menschen schwächer
       if (von && von.dmgF) menge *= von.dmgF;
       if (von && von.ultra > 0) menge *= 1.2;
       if (ziel.ultra > 0) menge *= 0.75;
@@ -699,14 +707,14 @@
       var ki = k.ki, a = k.def.angriff;
       var reich = (a.art === 'nah' ? a.reichweite : a.reichweite) * T;
       ki.denk -= dt; ki.seiteT -= dt;
-      if (ki.seiteT <= 0) { ki.seiteT = rnd(0.6, 1.6); ki.seite = -ki.seite; }
+      if (ki.seiteT <= 0) { ki.seiteT = rnd(0.6, 1.6) / Math.max(0.5, ks.seite + 0.3); ki.seite = -ki.seite; }
       if (ki.denk <= 0) {
-        ki.denk = rnd(0.25, 0.45);
+        ki.denk = rnd(0.7, 1.3) * ks.denk;
         // nächsten sichtbaren Gegner suchen
         var best = null, bd = 1e9;
         kaempfer.forEach(function (o) {
           if (o.team === k.team || o.tot || !sichtbarFuer(o, k.team)) return;
-          var d = abst(k, o); if (d < bd && d < T * 11) { bd = d; best = o; }
+          var d = abst(k, o); if (d < bd && d < T * ks.sicht) { bd = d; best = o; }
         });
         ki.ziel = best;
       }
@@ -786,7 +794,7 @@
         if (!frei && a.art !== 'wurf' || d > reich * 0.95) { var rw2 = wegRichtung(k, z.x, z.y); mx = Math.cos(rw2); my = Math.sin(rw2); }
         else if (d < wunschAbst * 0.7) { mx = -Math.cos(zw); my = -Math.sin(zw); }
         else if (a.art === 'nah') { mx = Math.cos(zw); my = Math.sin(zw); }
-        mx += Math.cos(zw + Math.PI / 2) * ki.seite * 0.7; my += Math.sin(zw + Math.PI / 2) * ki.seite * 0.7;
+        mx += Math.cos(zw + Math.PI / 2) * ki.seite * ks.seite; my += Math.sin(zw + Math.PI / 2) * ki.seite * ks.seite;
       }
       var len = Math.hypot(mx, my);
       if (len > 0) { mx /= len; my /= len; }
@@ -797,20 +805,20 @@
         var frei2 = a.art === 'wurf' || sichtfrei(k.x, k.y, z.x, z.y);
         // Vorhalt: wohin der Gegner gleich läuft
         var flug = a.art === 'wurf' ? a.flugzeit : d / (a.tempo || 1000);
-        var px = z.x + (z.vx || 0) * flug * 0.7, py = z.y + (z.vy || 0) * flug * 0.7;
-        var fehler = rangspiel ? 0.05 : 0.12;
+        var px = z.x + (z.vx || 0) * flug * ks.vorhalt, py = z.y + (z.vy || 0) * flug * ks.vorhalt;
+        var fehler = rangspiel ? 0.05 : ks.fehler;
         var zielW = Math.atan2(py - k.y, px - k.x) + rnd(-fehler, fehler);
         var mitBall = ball && ball.traeger === k;
-        if (k.tricks > 0 && k.trickT <= 0 && d < reich * 1.2 && Math.random() < dt * 0.6) {
+        if (k.tricks > 0 && k.trickT <= 0 && d < reich * 1.2 && Math.random() < dt * ks.trick) {
           var heil = ['ring', 'flasche', 'borschtsch', 'strauss'].indexOf(k.def.trick) >= 0;
           if (!heil || k.hp < k.maxHp * 0.5) trickAusloesen(k, k.def.trick === 'rueckzug' ? zielW : zielW, d);
         }
         if (!mitBall && frei2 && d < reich * 0.95 + z.r && ki.schussT <= 0 && k.munition >= 1) {
-          ki.schussT = (rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0)) * (rangspiel ? 0.75 : 1);
+          ki.schussT = (rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0)) * (rangspiel ? 0.75 : ks.takt);
           if (ultraBereit(k) && d < reich) ultraZuenden(k);
           angreifen(k, zielW, Math.hypot(px - k.x, py - k.y));
         }
-        if (k.superLadung >= k.def.superKosten && ki.schussT < 0.3) {
+        if (k.superLadung >= k.def.superKosten && ki.schussT < 0.3 && Math.random() < (rangspiel ? 1 : ks.super)) {
           var sa = k.def.superArt, sr = (k.def.superReichweite || 0) * T;
           var ok = (sa === 'moshpit' && d < T * 2.5) || (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
             (sa === 'lernnie' && k.hp < k.maxHp * 0.6 && d < reich) || (sa === 'unsichtbar' && d < T * 7) ||
