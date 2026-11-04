@@ -83,6 +83,8 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 | Ecki | Schnelle Schläge | Klo-Sprint – Ansturm + Kamillentee |
 | Philipp | Abprallende Bücher | „Digga, ich lern nie“ – unverwundbar, schneller laden |
 | Saro | Gold-Schrot | Aura-Mog – betäubt alle in der Nähe |
+| Matti | 3 Anmach-Sprüche | Korbstapel – Riesenkorb rollt durch alle Gegner |
+| Sinan | Low Kicks (Nahkampf) | Knie-Sprung – betäubt und schleudert weg |
 
 ## Aufbau
 

@@ -417,6 +417,43 @@
     sauer: { 7: '..HSHHSSSSHHSH..', 8: '..HSEESSSSEESH..', 11: '.HHSSSOOOOSSSHH.' }
   };
 
+  // Matti: sehr klein, dunkelblonder Wuschelkopf mit Pony, Labor-Schutzbrille mit grünen Bügeln, schwarzes Henley-Shirt mit Knöpfen
+  var MATTI_PAL = {
+    H: '#a8824a', h: '#cca468', S: '#f0c8ac', s: '#d6a68a', W: '#ffffff', E: '#4a3420', M: '#b0665c', O: '#3a1414', R: '#f29a8e',
+    G: '#d4ecf2', g: '#3ad84a', B: '#1c1c22', b: '#34343e', k: '#050508', T: '#f2f2f2', J: '#3a4a6a', K: '#f2f2f2', x: '#9a9a9a'
+  };
+  var MATTI = [
+    '....hHHhHHhH....', '..hHHHHHHHHHHh..', '.HHHhHHHHHHhHHH.', '.HHHHHHHHHHHHHH.', '.HHSHHHHHHHHSHH.', '.HSSSSHSSHSSSSH.',
+    'gGGGGGGSSGGGGGGg', 'sGGWEGSSSSGWEGGs', '.GGGGGGSSGGGGGG.', '.SSSSSSssSSSSSS.', '.SSSSSMMMMSSSSS.', '..SSSSSSSSSSSS..',
+    '...ssSSSSSSss...', '......ssss......', '..BBBBBTTBBBBB..', '.BBBBBBkBBBBBBB.', 'BBBbBBBkBBBBbBBB', 'SBBBBBBBBBBBBBBS',
+    '..JJJJJJJJJJJJ..', '..JJJJ....JJJJ..', '.KKKKK....KKKKK.', '.KxKKK....KKxKK.'
+  ];
+  var MATTI_MOODS = {
+    neutral: {},
+    flirt: { 7: 'sGGEEGSSSSGWEGGs', 9: '.SRRSSSssSSSRRS.', 10: '.SSSSMWWWWMSSSS.' },
+    korb: { 5: '.HSSHHSSSSHHSSH.', 10: '.SSSSSSSSSSSSSS.', 11: '..SSSSMMMMSSSS..' },
+    schock: { 7: 'sGWEWGSSSSWEWGGs', 10: '.SSSSSMOOMSSSSS.', 11: '..SSSSSOOSSSSS..' },
+    skeptisch: { 7: 'sGGEWGSSSSGEWGGs', 10: '.SSSSSMMMSSSSSS.' },
+    jubel: { 7: 'sGGEEGSSSSGEEGGs', 9: '.SRRSSSssSSSRRS.', 10: '.SSSSOWWWWOSSSS.' }
+  };
+  // Sinan: schwarze, nach hinten gestylte Haare mit Fade an den Seiten, schwarzer Pulli mit kleinem Logo; „kampf“ = Mongkol (rotes Stirnband) + rote Handschuhe
+  var SINAN_PAL = {
+    H: '#16110e', h: '#3a2c22', F: '#6a5444', S: '#e6b994', s: '#c6976f', E: '#2a1a10', W: '#ffffff', M: '#a85a50', O: '#3a1010',
+    B: '#141418', b: '#2a2a32', R: '#d02a2a', w: '#f2f2f2', N: '#1e2a6a', J: '#2a2a34', K: '#f2f2f2', k: '#9a9a9a'
+  };
+  var SINAN = [
+    '................', '....hHHHHHHh....', '..hHHHHHHHHHHh..', '.HHHHhHHHHhHHHH.', '.HHHHHHHHHHHHHH.', '.FHHHHHHHHHHHHF.',
+    '.FSSSSSSSSSSSSF.', '.FSHHSSSSSSHHSF.', 'sSSWESSSSSSWESSs', 'sSSSSSSssSSSSSSs', '.SSSSSSsSSSSSSS.', '.SSSSSSMMMMMSSS.',
+    '..SSSSSSSSSSSS..', '...ssSSSSSSss...', '......ssss......', '..BBBBBssBBBBB..', '.BBBBBBBBBBBBBB.', 'BBBbBBBBBBNwRBBB',
+    'BBBbBBBBBBBBbBBB', 'BBBBBBBBBBBBBBBB', 'SBBBBBBBBBBBBBBS', 'S.BBBBBBBBBBBB.S', '..JJJJJJJJJJJJ..', '..JJJJJ..JJJJJ..',
+    '..JJJJJ..JJJJJ..', '..JJJJ....JJJJ..', '.KKKKK....KKKKK.', '.KkKKK....KKkKK.'
+  ];
+  var SINAN_MOODS = {
+    neutral: {},
+    kampf: { 5: '.RRRRwRRRRwRRRR.', 7: '.FSSHHSSSSHHSSF.', 11: '.SSSSSMMMMMSSSS.', 20: 'RBBBBBBBBBBBBBBR', 21: 'R.BBBBBBBBBBBB.R' },
+    au: { 7: '.FHHSSSSSSSSHHF.', 8: 'sSSHHSSSSSSHHSSs', 11: '.SSSSSMOOMSSSSS.', 12: '..SSSSSOOSSSSS..' }
+  };
+
   // Robo-Hausmeister (Boss) und Kreideklecks (Monster) – eigene Figuren für Bravo Stars
   function breite(zeilen, b) { return zeilen.map(function (z) { while (z.length < b) z += '.'; return z.slice(0, b); }); }
   var ROBO = breite([
@@ -463,6 +500,14 @@
     julian: function (mood) {
       mood = mood || 'neutral';
       return Pixel.sprite('julian-' + mood, withMood(JULIAN, JULIAN_MOODS, mood), JULIAN_PAL);
+    },
+    matti: function (mood) {
+      mood = MATTI_MOODS[mood] ? mood : 'neutral';
+      return Pixel.sprite('matti-' + mood, withMood(MATTI, MATTI_MOODS, mood), MATTI_PAL);
+    },
+    sinan: function (mood) {
+      mood = SINAN_MOODS[mood] ? mood : 'neutral';
+      return Pixel.sprite('sinan-' + mood, withMood(SINAN, SINAN_MOODS, mood), SINAN_PAL);
     },
     robo: function () { return Pixel.sprite('robo', ROBO, ROBO_PAL); },
     klecks: function () { return Pixel.sprite('klecks', KLECKS, KLECKS_PAL); },

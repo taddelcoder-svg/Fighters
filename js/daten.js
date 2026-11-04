@@ -110,6 +110,24 @@
       superText: '„Digga, ich lern nie“ – 3 Sekunden unverwundbar und doppelt so schnell nachladen.'
     },
     {
+      id: 'matti', name: 'Matti', titel: 'Korbsammler', rolle: 'Flitzer', farbe: '#3ad84a', radius: 14,
+      sprite: function (m) { return Sprites.matti(m === 'super' ? 'jubel' : m === 'tot' ? 'korb' : 'flirt'); },
+      hp: 100, tempo: SCHNELL, laden: 1.05, superKosten: 95,
+      angriff: { art: 'schuss', anzahl: 3, streuung: 0.38, tempo: 560, reichweite: 6, schaden: 12, radius: 9, look: 'spruch' },
+      angriffText: 'Drei Anmach-Sprüche im Fächer – kurz, aber nervig.',
+      superArt: 'korbstapel', superReichweite: 8,
+      superText: 'Korbstapel – wirft seinen ganzen Stapel Körbe: ein Riesenkorb rollt durch alle Gegner und schiebt sie weg.'
+    },
+    {
+      id: 'sinan', name: 'Sinan', titel: 'Muay-Thai-Kämpfer', rolle: 'Nahkampf', farbe: '#d02a2a',
+      sprite: function (m) { return Sprites.sinan(m === 'tot' ? 'au' : 'kampf'); },
+      hp: 165, tempo: SCHNELL, laden: 0.95, superKosten: 105,
+      angriff: { art: 'nah', reichweite: 2.1, breite: 1.3, schaden: 30, look: 'faust' },
+      angriffText: 'Harte Low Kicks aus der Nähe.',
+      superArt: 'knie', superReichweite: 6,
+      superText: 'Knie-Sprung – springt mit dem Knie voran nach vorn, betäubt und schleudert alle weg, die er trifft.'
+    },
+    {
       id: 'saro', name: 'Saro', titel: 'Goldgräber', rolle: 'Nahkampf', farbe: '#ffd23f',
       sprite: function (m) { return Sprites.saro(m === 'super' ? 'cool' : m === 'tot' ? 'schock' : 'stolz'); },
       hp: 140, tempo: SCHNELL, laden: 1.25, superKosten: 110,
@@ -142,6 +160,10 @@
       talent: { schaden: 1.1 }, talentName: 'E = mc²', talentText: '+10 % Schaden.' },
     ecki: { trick: 'klopapier', trickName: 'Notfall-Klopapier', trickText: '3 Sekunden lang 30 % schneller.',
       talent: { regenPause: 0.5 }, talentName: 'Blasenstark', talentText: 'Fängt doppelt so früh an zu heilen.' },
+    matti: { trick: 'ring', trickName: 'Ego-Boost', trickText: 'Heilt 35 % Leben – ein Korb mehr macht ihm nichts.',
+      talent: { tempo: 1.08 }, talentName: 'Klein & flink', talentText: 'Läuft 8 % schneller.' },
+    sinan: { trick: 'schild', trickName: 'Deckung', trickText: '1,5 Sekunden unverwundbar.',
+      talent: { hp: 1.12 }, talentName: 'Abgehärtet', talentText: '+12 % Leben.' },
     philipp: { trick: 'spickzettel', trickName: 'Spickzettel', trickText: 'Der nächste Treffer zählt doppelt.',
       talent: { laden: 0.85 }, talentName: 'Streber', talentText: 'Lädt 15 % schneller nach.' },
     saro: { trick: 'goldregen', trickName: 'Goldregen', trickText: '10 Goldnuggets fliegen ringsum.',
@@ -160,6 +182,8 @@
     damon: { t: ['nachladen', 'Zugabe!', 'Sofort volle Munition.'], a: [{ regenTempo: 2 }, 'Lärmschutz', 'Heilt sich doppelt so schnell.'] },
     moritz: { t: ['sprung', 'Teleport', 'Springt 3 Felder nach vorn.'], a: [{ superF: 1.2 }, 'Teilchenbeschleuniger', 'Super lädt 20 % schneller.'] },
     ecki: { t: ['flasche', 'Kamillentee', 'Heilt 25 % und macht 2 Sekunden schneller.'], a: [{ schaden: 1.1 }, 'Wut im Bauch', '+10 % Schaden.'] },
+    matti: { t: ['sprung', 'Abgang', 'Springt 3 Felder nach vorn – schnell weg nach dem Korb.'], a: [{ superF: 1.2 }, 'Stapelweise', 'Super lädt 20 % schneller.'] },
+    sinan: { t: ['klopapier', 'Kampfgeist', '3 Sekunden lang 30 % schneller.'], a: [{ schaden: 1.1 }, 'Ellbogen', '+10 % Schaden.'] },
     philipp: { t: ['schild', 'Krankmeldung', '1,5 Sekunden unverwundbar.'], a: [{ hp: 1.12 }, 'Ausgeschlafen', '+12 % Leben.'] }
   };
   KAEMPFER.forEach(function (k) {
@@ -189,7 +213,7 @@
     { id: 'mythisch', name: 'Mythisch', farbe: '#e83a5a' },
     { id: 'legendaer', name: 'Legendär', farbe: '#ffc828' }
   ];
-  var SELTEN = { matteo: 4, felix: 3, julian: 2, moritz: 2, leon: 1, damon: 1, omar: 0, philipp: 0, timo: 0, mo: 0, ecki: 0, saro: 3 };
+  var SELTEN = { matteo: 4, felix: 3, julian: 2, moritz: 2, leon: 1, damon: 1, omar: 0, philipp: 0, timo: 0, mo: 0, ecki: 0, saro: 3, matti: 1, sinan: 2 };
   KAEMPFER.forEach(function (k) { k.seltenheit = SELTENHEITEN[SELTEN[k.id] || 0]; k.seltenRang = SELTEN[k.id] || 0; });
   BS_SELTENHEITEN = SELTENHEITEN;
 

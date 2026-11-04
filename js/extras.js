@@ -49,6 +49,14 @@
       { id: 'streber', name: 'Heimlicher Streber', preis: 150, farben: { '#1e4a3c': '#e8e8e8', '#163a2e': '#c8c8c8' } },
       { id: 'boss', name: 'Pausenhof-Boss', preis: 400, selten: true, farben: { '#1e4a3c': '#141414', '#163a2e': '#2a2a2a', '#e8c040': '#ffd23f' } }
     ],
+    matti: [
+      { id: 'kavalier', name: 'Rosenhemd', preis: 200, farben: { '#1c1c22': '#c8304a', '#34343e': '#a81e3a' } },
+      { id: 'korbkoenig', name: 'Korbkönig', preis: 400, selten: true, farben: { '#1c1c22': '#c8902a', '#34343e': '#a87018', '#3a4a6a': '#5a3a1a' } }
+    ],
+    sinan: [
+      { id: 'blau', name: 'Blaue Ecke', preis: 200, farben: { '#d02a2a': '#2a6ad8', '#141418': '#1e2a5a' } },
+      { id: 'champion', name: 'Champion', preis: 400, selten: true, farben: { '#d02a2a': '#ffd23f', '#141418': '#2a1a08', '#2a2a32': '#4a3010' } }
+    ],
     saro: [
       { id: 'gold', name: 'Goldader', preis: 300, farben: { '#1c2238': '#b8902a', '#2e3654': '#e0b84a' } },
       { id: 'nacht', name: 'Frankfurt bei Nacht', preis: 400, selten: true, farben: { '#1c2238': '#141418', '#2e3654': '#2a2a32', '#e8d040': '#ff5a8a' } }

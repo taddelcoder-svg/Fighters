@@ -584,6 +584,14 @@
             projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(ww) * 520, vy: Math.sin(ww) * 520, weg: 0, max: 6 * T, schaden: 22, r: 9, owner: k, team: k.team, look: 'teller', getroffen: [], w: ww });
           }
           break;
+        case 'korbstapel':
+          projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(w) * 480, vy: Math.sin(w) * 480, weg: 0, max: maxD, schaden: 42, r: 20, owner: k, team: k.team,
+            look: 'korb', durch: true, getroffen: [], wegstoss: 380, w: w });
+          break;
+        case 'knie':
+          k.dash = { vx: Math.cos(w) * 760, vy: Math.sin(w) * 760, t: Math.min(maxD, d) / 760, getroffen: [], schaden: 48, stoss: 440, unverwundbar: true, look: 'sprint' };
+          sfx.noise(0.2, 0.2, 900);
+          break;
         case 'moshpit':
           flaechen.push({ x: k.x, y: k.y, r: 2.2 * T, t: 0, d: 3, dps: 26, stoss: 260, folgt: k, owner: k, team: k.team, look: 'mosh', tick: 0 });
           wackeln = Math.max(wackeln, 3);
@@ -1569,6 +1577,7 @@
               p.getroffen.push(o);
               var m = schaden(o, p.schaden, p.owner);
               if (p.bremst) o.gebremst = Math.max(o.gebremst, p.bremst);
+              if (p.wegstoss && !o.tot) { var sw2 = Math.atan2(p.vy, p.vx); o.stoss = { vx: Math.cos(sw2) * p.wegstoss, vy: Math.sin(sw2) * p.wegstoss, t: 0.3 }; }
               if (p.charme && !o.tot) { o.verliebt = p.charme; o.verliebtZu = p.owner; zahl({ x: o.x, y: o.y - 60, t: -0.2, text: '<3', farbe: '#ff8ab0' }); }
               if (p.klau) {
                 if (m) heilen(p.owner, m);
@@ -1709,6 +1718,13 @@
         case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
         case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
         case 'schraube': ctx.fillStyle = '#c8ccd6'; ctx.fillRect(-8, -3, 16, 6); ctx.fillStyle = '#8a8e98'; ctx.fillRect(4, -6, 5, 12); break;
+        case 'spruch': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1c1430'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(0, -2, 11, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-4, 5); ctx.lineTo(-8, 11); ctx.lineTo(1, 6); ctx.fill();
+          ctx.fillStyle = '#e8343f'; ctx.fillRect(-6, -4, 3, 3); ctx.fillRect(-1, -4, 3, 3); ctx.fillRect(4, -4, 3, 3); break;
+        case 'korb': ctx.rotate(zeit * 9); ctx.fillStyle = '#a8702a'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#6a4418'; ctx.lineWidth = 3; for (var kr = -14; kr <= 14; kr += 7) { ctx.beginPath(); ctx.moveTo(kr, -18); ctx.lineTo(kr, 18); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-18, kr); ctx.lineTo(18, kr); ctx.stroke(); }
+          ctx.strokeStyle = '#d8a050'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.stroke(); break;
         case 'plasma': ctx.fillStyle = 'rgba(90,240,255,.35)'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#5af0ff'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-2, -2, 3, 0, Math.PI * 2); ctx.fill(); break;
         case 'grossherz': ctx.restore(); zeichneHerz(x2, y2 - 6, 14); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x2, y2, 18 + Math.sin(zeit * 20) * 3, 0, Math.PI * 2); ctx.stroke(); return;
