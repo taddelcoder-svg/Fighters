@@ -2,7 +2,7 @@
 // Die Figuren kommen aus Crazy Lineup (js/sprites.js), jede hat einen Angriff und einen Super.
 (function () {
   // Tempo in Pixeln pro Sekunde (1 Feld = 40 px)
-  var LANGSAM = 160, NORMAL = 185, SCHNELL = 215, RASEND = 240;
+  var LANGSAM = 125, NORMAL = 145, SCHNELL = 165, RASEND = 182;
 
   // angriff.art: 'schuss' (gerade Projektile), 'wurf' (fliegt über Wände, explodiert am Ziel), 'nah' (kurzer Hieb)
   // reichweite in Feldern; laden = Sekunden pro Munitionsbalken (3 Balken); superKosten = Schaden bis zum Super
@@ -81,13 +81,13 @@
       superText: 'Moshpit – 3 Sekunden tobt um ihn ein Pit, der Schaden macht und wegschubst.'
     },
     {
-      id: 'moritz', name: 'Moritz', titel: 'Kavalier', rolle: 'Kontrolle', farbe: '#f08a9a',
+      id: 'moritz', name: 'Moritz', titel: 'Physiker', rolle: 'Kontrolle', farbe: '#4a6ad8',
       sprite: function () { return Sprites.moritz(); },
       hp: 115, tempo: NORMAL, laden: 1.2, superKosten: 100,
-      angriff: { art: 'schuss', anzahl: 2, parallel: 9, streuung: 0, tempo: 600, reichweite: 7.5, schaden: 15, radius: 8, look: 'herz' },
-      angriffText: 'Wirft zwei Herzen gleichzeitig.',
-      superArt: 'charme', superReichweite: 8,
-      superText: 'Herzensbrecher – wer getroffen wird, verliebt sich, läuft 2 Sekunden auf Moritz zu und kann nicht angreifen.'
+      angriff: { art: 'schuss', anzahl: 2, parallel: 9, streuung: 0, tempo: 600, reichweite: 7.5, schaden: 16, radius: 9, look: 'plasma' },
+      angriffText: 'Feuert zwei Plasmakugeln gleichzeitig.',
+      superArt: 'schwarzesloch', superReichweite: 7,
+      superText: 'Schwarzes Loch – zieht 3 Sekunden lang alle Gegner in die Mitte und macht Schaden.'
     },
     {
       id: 'ecki', name: 'Ecki', titel: 'Muss mal!', rolle: 'Flitzer', farbe: '#3ab0e8',
@@ -137,8 +137,8 @@
       talent: { laden: 0.88 }, talentName: 'Katalysator', talentText: 'Lädt 12 % schneller nach.' },
     damon: { trick: 'stagedive', trickName: 'Stagedive', trickText: 'Springt bis zu 4 Felder und schubst bei der Landung.',
       talent: { schaden: 1.1 }, talentName: 'Lautstärke 11', talentText: '+10 % Schaden.' },
-    moritz: { trick: 'strauss', trickName: 'Blumenstrauß', trickText: 'Heilt ihn und alle Teamkollegen in der Nähe um 30.',
-      talent: { hp: 1.12 }, talentName: 'Gentleman', talentText: '+12 % Leben.' },
+    moritz: { trick: 'magnetfeld', trickName: 'Magnetfeld', trickText: 'Schleudert alle Gegner in der Nähe weg.',
+      talent: { schaden: 1.1 }, talentName: 'E = mc²', talentText: '+10 % Schaden.' },
     ecki: { trick: 'klopapier', trickName: 'Notfall-Klopapier', trickText: '3 Sekunden lang 30 % schneller.',
       talent: { regenPause: 0.5 }, talentName: 'Blasenstark', talentText: 'Fängt doppelt so früh an zu heilen.' },
     philipp: { trick: 'spickzettel', trickName: 'Spickzettel', trickText: 'Der nächste Treffer zählt doppelt.',

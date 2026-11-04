@@ -292,6 +292,15 @@
     '..JJJJJ..JJJJJ..', '..JJJJ....JJJJ..', '.KKKKK....KKKKK.', '.KkKKK....KKkKK.'
   ];
   // Damon: dunkler Kurzhaarschnitt mit Fade, weißes Metal-Shirt mit rotem Logo, graue Jeans
+  // Moritz als Physiker (Bravo Stars): gleiche Haare und Gesicht, dazu runde Brille und dunkelblauer Hoodie mit Atom-Logo
+  var MORITZ_PHYSIKER = MORITZ.map(function (z, i) {
+    return { 7: '.SGGGGSGGSGGGGS.', 8: 'sSGLEGSSSSGELGSs', 9: 'sSGGGGSssSGGGGSs' }[i] || z;
+  });
+  var MORITZ_PHYSIKER_PAL = {};
+  for (var mpk in MORITZ_PAL) MORITZ_PHYSIKER_PAL[mpk] = MORITZ_PAL[mpk];
+  MORITZ_PHYSIKER_PAL.G = '#202028'; MORITZ_PHYSIKER_PAL.L = '#cfe8ff'; MORITZ_PHYSIKER_PAL.T = '#2a3a7a'; MORITZ_PHYSIKER_PAL.t = '#1e2a5a';
+  MORITZ_PHYSIKER_PAL.P = '#ffd23f'; MORITZ_PHYSIKER_PAL.p = '#ff8a1c';
+
   var DAMON_PAL = {
     H: '#3a2618', h: '#5a3a26', f: '#7a6050', S: '#eec2a4', s: '#d6a486', W: '#ffffff', E: '#2a1a10', M: '#a86058',
     T: '#f2f2f0', t: '#d0d0d0', R: '#c81e2a', r: '#8a1018', K: '#202020', k: '#5a5a5a', J: '#a8a8a8', j: '#8a8a8a', B: '#141418', b: '#3a3a3a'
@@ -439,7 +448,7 @@
       return Pixel.sprite('julian-' + mood, withMood(JULIAN, JULIAN_MOODS, mood), JULIAN_PAL);
     },
     damon: function () { return Pixel.sprite('damon', DAMON, DAMON_PAL); },
-    moritz: function () { return Pixel.sprite('moritz', MORITZ, MORITZ_PAL); },
+    moritz: function () { return Pixel.sprite('moritz-physiker', MORITZ_PHYSIKER, MORITZ_PHYSIKER_PAL); },
     doppeldate: function () {
       var c = document.createElement('canvas'); c.width = 34; c.height = 28;
       var x = c.getContext('2d');

@@ -60,7 +60,7 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 | Felix | Biss, heilt | Großer Hunger – riesig, isst Wände |
 | Julian | Kolben über Wände werfen | Natrium! – sprengt Wände |
 | Damon | 3 Noten (Power-Chord) | Moshpit – Schaden und Wegschubsen rundherum |
-| Moritz | Zwei Herzen | Herzensbrecher – Getroffene laufen verliebt auf ihn zu |
+| Moritz (Physiker) | Zwei Plasmakugeln | Schwarzes Loch – zieht Gegner in die Mitte |
 | Ecki | Schnelle Schläge | Klo-Sprint – Ansturm + Kamillentee |
 | Philipp | Abprallende Bücher | „Digga, ich lern nie“ – unverwundbar, schneller laden |
 | Saro | Gold-Schrot | Aura-Mog – betäubt alle in der Nähe |

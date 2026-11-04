@@ -36,8 +36,8 @@
       { id: 'zombie', name: 'Zombie-Konzert', preis: 400, selten: true, farben: { '#eec2a4': '#9ad08a', '#d6a486': '#7ab06a', '#f2f2f0': '#6a5a4a', '#d0d0d0': '#4a3a2a' } }
     ],
     moritz: [
-      { id: 'rosen', name: 'Rosenkavalier', preis: 200, farben: { '#1c1c20': '#c8304a', '#34343c': '#a81e3a', '#8a96a8': '#f2f2f2' } },
-      { id: 'surfer', name: 'Surfer', preis: 300, selten: true, farben: { '#1c1c20': '#3ab0e8', '#34343c': '#2a90c8', '#8a96a8': '#e8c068' } }
+      { id: 'labor', name: 'Laborkittel', preis: 200, farben: { '#2a3a7a': '#f2f2ee', '#1e2a5a': '#c8ccd0', '#ffd23f': '#3a6ad8', '#ff8a1c': '#d83a3a' } },
+      { id: 'quanten', name: 'Quantenfeld', preis: 300, selten: true, farben: { '#2a3a7a': '#5a1e9a', '#1e2a5a': '#3a1068', '#ffd23f': '#5af0ff', '#ff8a1c': '#ff5af0', '#202028': '#5af0ff', '#cfe8ff': '#e8c8ff' } }
     ],
     ecki: [
       { id: 'sprinter', name: 'Sprinter', preis: 200, farben: { '#a8acb2': '#ffd23f', '#8a8e96': '#e0b020', '#3a4a6a': '#141418', '#e84a3a': '#3ab0e8' } },

@@ -501,6 +501,10 @@
         case 'sandsturm':
           flaechen.push({ x: z.x, y: z.y, r: 2.6 * T, t: 0, d: 5, dps: 14, bremst: true, owner: k, team: k.team, look: 'sand', tick: 0 });
           break;
+        case 'schwarzesloch':
+          flaechen.push({ x: z.x, y: z.y, r: 2.6 * T, t: 0, d: 3, dps: 18, zug: 230, owner: k, team: k.team, look: 'loch', tick: 0 });
+          sfx.tone(120, 0.6, 'sawtooth', 0.06, 40);
+          break;
         case 'hunger':
           k.gross = 6; k.schild = 0; heilen(k, 40);
           break;
@@ -622,6 +626,10 @@
           var sd = klemm(d || 4 * T, T, 4 * T);
           k.dash = { vx: Math.cos(w) * 800, vy: Math.sin(w) * 800, t: sd / 800, getroffen: [], schaden: 0, stoss: 0, unverwundbar: true, look: 'sprint',
             ende: function () { flaechenSchaden(k, k.x, k.y, 1.4 * T, 20, { stoss: 320 }); fx({ art: 'ring', x: k.x, y: k.y, r: 1.4 * T, t: 0, d: 0.3, farbe: '#c81e2a' }); } };
+          break;
+        case 'magnetfeld':
+          flaechenSchaden(k, k.x, k.y, 2.6 * T, 12, { stoss: 460 });
+          fx({ art: 'ring', x: k.x, y: k.y, r: 2.6 * T, t: 0, d: 0.4, farbe: '#5af0ff' });
           break;
         case 'strauss':
           kaempfer.forEach(function (o) { if (o.team === k.team && !o.tot && abst(o, k) < 3 * T) heilen(o, 30); });
@@ -866,7 +874,7 @@
           var sa = k.def.superArt, sr = (k.def.superReichweite || 0) * T;
           var ok = (sa === 'moshpit' && d < T * 2.5) || (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
             (sa === 'lernnie' && k.hp < k.maxHp * 0.6 && d < reich) || (sa === 'unsichtbar' && d < T * 7) ||
-            (sr && d < sr && (sa === 'charme' && frei2 || sa === 'veto' || sa === 'natrium' || sa === 'sandsturm' || frei2));
+            (sr && d < sr && (sa === 'schwarzesloch' || sa === 'veto' || sa === 'natrium' || sa === 'sandsturm' || frei2));
           if (ok) superZuenden(k, zielW, Math.hypot(px - k.x, py - k.y));
         }
       }
@@ -979,13 +987,32 @@
     emoteKnopf.addEventListener('click', function () { emoteListe.hidden = !emoteListe.hidden; });
     function superBereit() { return !spieler.tot && spieler.superLadung >= spieler.def.superKosten; }
     var gastAngriffT = 0;
+    // Zielhilfe: lenkt den Schuss auf den Gegner, der am nächsten an der Ziellinie steht
+    function zielhilfeAuf(w, d, art, reich) {
+      var best = null, bestWert = 1e9, kegel = art === 'nah' ? 0.7 : 0.42;
+      kaempfer.forEach(function (o) {
+        if (o.team === spieler.team || o.tot || !sichtbarFuer(o, spieler.team)) return;
+        var od = abst(spieler, o); if (od > reich * 1.15 + o.r) return;
+        var dw = Math.abs(winkelDiff(Math.atan2(o.y - spieler.y, o.x - spieler.x), w));
+        if (art === 'wurf') { var px = spieler.x + Math.cos(w) * d, py = spieler.y + Math.sin(w) * d, pd = Math.hypot(o.x - px, o.y - py); if (pd > 2 * T) return; dw = pd / T; }
+        else if (dw > kegel) return;
+        var wert = dw * 3 + od / reich; if (wert < bestWert) { bestWert = wert; best = o; }
+      });
+      if (!best) return { w: w, d: d };
+      var flug = art === 'wurf' ? (spieler.def.angriff.flugzeit || 0.6) : abst(spieler, best) / (spieler.def.angriff.tempo || 900);
+      var tx = best.x + (best.vx || 0) * flug * 0.5, ty = best.y + (best.vy || 0) * flug * 0.5;
+      return { w: Math.atan2(ty - spieler.y, tx - spieler.x), d: Math.hypot(tx - spieler.x, ty - spieler.y) };
+    }
     function spielerAngriff(w, d) {
       if (ende || pausiert) return;
+      if (!(ball && ball.traeger === spieler)) { var a0 = spieler.def.angriff, zh = zielhilfeAuf(w, d, a0.art, a0.reichweite * T); w = zh.w; d = zh.d; }
       if (gast) { if (spieler.munition >= 1 && zeit - gastAngriffT > 0.15) { gastAngriffT = zeit; netz.senden({ t: 'an_host', d: { a: 'angriff', w: w, d: d } }); } return; }
       angreifen(spieler, w, d);
     }
     function spielerSuper(w, d) {
       if (ende || pausiert || !superBereit()) return;
+      var sr = (spieler.def.superReichweite || 0) * T;
+      if (sr) { var lob = ['veto', 'natrium', 'sandsturm', 'schwarzesloch', 'klosprint'].indexOf(spieler.def.superArt) >= 0, zs = zielhilfeAuf(w, d, lob ? 'wurf' : 'schuss', sr); w = zs.w; d = zs.d; }
       if (gast) { netz.senden({ t: 'an_host', d: { a: 'super', w: w, d: d } }); spieler.superLadung = 0; return; }
       superZuenden(spieler, w, d);
     }
@@ -1292,6 +1319,7 @@
             if (f.dps) schaden(o, f.dps / 2, f.owner);
             if (f.bremst) o.gebremst = Math.max(o.gebremst, 0.6);
             if (f.stoss) { var sw = Math.atan2(o.y - f.y, o.x - f.x); o.stoss = { vx: Math.cos(sw) * f.stoss, vy: Math.sin(sw) * f.stoss, t: 0.2 }; }
+            if (f.zug) { var zw = Math.atan2(f.y - o.y, f.x - o.x), zd = Math.hypot(f.x - o.x, f.y - o.y); if (zd > 12) o.stoss = { vx: Math.cos(zw) * f.zug, vy: Math.sin(zw) * f.zug, t: Math.min(0.45, zd / f.zug) }; }
           });
           if (f.dps) tresore.forEach(function (t) { if (t.team !== f.team && Math.hypot(t.x - f.x, t.y - f.y) < f.r + t.r * 0.5) tresorTreffer(t, f.dps / 2, f.owner); });
         }
@@ -1356,7 +1384,7 @@
               if (o.tot || o.team === p.team || p.getroffen.indexOf(o) >= 0) continue;
               var orr = o.r * (o.gross > 0 ? 1.5 : 1);
               var ky = klemm(p.y, o.y - 30 * (o.gross > 0 ? 1.6 : 1), o.y + 4);
-              if (Math.hypot(o.x - p.x, ky - p.y) > orr + p.r) continue;
+              if (Math.hypot(o.x - p.x, ky - p.y) > orr + p.r + (o.ki ? 6 : 2)) continue;   // großzügig, vor allem gegen Bots
               p.getroffen.push(o);
               var m = schaden(o, p.schaden, p.owner);
               if (p.bremst) o.gebremst = Math.max(o.gebremst, p.bremst);
@@ -1479,6 +1507,8 @@
         case 'spucke': ctx.fillStyle = '#d8f0a0'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(-2, -5, 4, 4); break;
         case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
         case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
+        case 'plasma': ctx.fillStyle = 'rgba(90,240,255,.35)'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#5af0ff'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-2, -2, 3, 0, Math.PI * 2); ctx.fill(); break;
         case 'grossherz': ctx.restore(); zeichneHerz(x2, y2 - 6, 14); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x2, y2, 18 + Math.sin(zeit * 20) * 3, 0, Math.PI * 2); ctx.stroke(); return;
         case 'teller': ctx.rotate(zeit * 20); ctx.fillStyle = '#f4f4f4'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#c8a0ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.stroke(); break;
         case 'buch': ctx.rotate(zeit * 14); ctx.fillStyle = '#5a3ac8'; ctx.fillRect(-10, -7, 20, 14); ctx.fillStyle = '#fff'; ctx.fillRect(-8, -5, 3, 10); break;
@@ -1515,6 +1545,15 @@
 
       // Flächen
       flaechen.forEach(function (f) {
+        if (f.look === 'loch') {
+          var lg = ctx.createRadialGradient(f.x, f.y, 4, f.x, f.y, f.r);
+          lg.addColorStop(0, 'rgba(0,0,0,.95)'); lg.addColorStop(0.35, 'rgba(40,10,80,.75)'); lg.addColorStop(1, 'rgba(90,60,200,0)');
+          ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = 'rgba(160,140,255,.7)'; ctx.lineWidth = 3;
+          for (var sp = 0; sp < 3; sp++) { ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.35 + sp * 0.2), zeit * (3 + sp) + sp, zeit * (3 + sp) + sp + 2); ctx.stroke(); }
+          ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(f.x, f.y, 12, 0, Math.PI * 2); ctx.fill();
+          return;
+        }
         var farbe = f.look === 'mosh' ? 'rgba(200,30,42,' : f.look === 'rauch' ? 'rgba(170,170,185,' : 'rgba(230,190,110,';
         ctx.fillStyle = farbe + (0.32 + Math.sin(zeit * 10) * 0.05) + ')'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
         if (f.look === 'mosh') { ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -zeit * 80; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.85, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
@@ -1643,9 +1682,9 @@
       var a = spieler.def.angriff, art = istSuper ? spieler.def.superArt : a.art;
       var reich = (istSuper ? (spieler.def.superReichweite || 3.2) : a.reichweite) * T;
       ctx.fillStyle = istSuper ? 'rgba(255,210,63,.28)' : 'rgba(255,255,255,.2)';
-      if (art === 'wurf' || art === 'veto' || art === 'natrium' || art === 'sandsturm' || art === 'klosprint') {
+      if (art === 'wurf' || art === 'veto' || art === 'natrium' || art === 'sandsturm' || art === 'schwarzesloch' || art === 'klosprint') {
         var d = klemm(z.d, T, reich), px = ox + Math.cos(z.w) * d, py = oy + Math.sin(z.w) * d;
-        var fl = art === 'wurf' ? a.flaeche * T : art === 'veto' ? 2.2 * T : art === 'natrium' ? 2.6 * T : art === 'sandsturm' ? 2.6 * T : 1.7 * T;
+        var fl = art === 'wurf' ? a.flaeche * T : art === 'veto' ? 2.2 * T : art === 'natrium' ? 2.6 * T : art === 'sandsturm' || art === 'schwarzesloch' ? 2.6 * T : 1.7 * T;
         ctx.beginPath(); ctx.arc(px, py, fl, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
       } else if (art === 'nah') {
