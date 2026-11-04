@@ -19,6 +19,10 @@
   konto.shop = konto.shop || {};
   konto.rang = konto.rang || 0; konto.rangHoch = konto.rangHoch || 0;
   konto.pass = konto.pass || {};
+  konto.wahlen = konto.wahlen || {};     // { kaempfer: { trick: 0|1, talent: 0|1 } }
+  konto.stats = konto.stats || { runden: 0, siege: 0, kos: 0, schaden: 0, tore: 0, supers: 0, mvp: 0, proKaempfer: {} };
+  konto.freunde = konto.freunde || [];
+  konto.avatar = konto.avatar || '';
   // Alte Pokale vom Doppel-Kämpfer gehen an Damon und Moritz
   if (pokale.doppeldate) { pokale.damon = (pokale.damon || 0) + pokale.doppeldate; pokale.moritz = (pokale.moritz || 0) + pokale.doppeldate; delete pokale.doppeldate; }
 
@@ -37,7 +41,8 @@
   function hatSkin(kid, sid) { return (konto.skins[kid] || []).indexOf(sid) >= 0; }
   function skinVon(kid) { var s = konto.angelegt[kid]; return s && hatSkin(kid, s) ? s : ''; }
   function teileVon(kid) { return stufe(kid) >= BS.AUSRUESTUNG_AB ? (konto.teileAn[kid] || []).filter(function (t) { return konto.teile.indexOf(t) >= 0; }).slice(0, 2) : []; }
-  function rangModusOk(m) { var x = BS.MODI.filter(function (y) { return y.id === m; })[0]; return x && x.team && !x.training; }
+  function rangModusOk(m) { var x = BS.MODI.filter(function (y) { return y.id === m; })[0]; return x && x.team && !x.training && !x.koop; }
+  function wahlVon(kid) { return konto.wahlen[kid] || { trick: 0, talent: 0 }; }
   speichern();
 
   // Rangliste der Spielesammlung: Punkte = alle Pokale, Progress = wie viele Kämpfer schon 100 Pokale haben (anteilig)
@@ -66,7 +71,7 @@
   function kasse() { Pixel.sfx.tone(880, 0.06, 'square', 0.05); Pixel.sfx.tone(1320, 0.1, 'square', 0.05, null, 0.06); }
   function modusVon(id) { return BS.MODI.filter(function (m) { return m.id === id; })[0] || BS.MODI[0]; }
   // Kleine Kartenvorschau aus dem Textraster
-  var FARBEN = { '.': '#d2b276', '#': '#8a5a34', b: '#3a8a3e', w: '#3d8fd6', K: '#b8792e' };
+  var FARBEN = { '.': '#d2b276', '#': '#8a5a34', b: '#3a8a3e', w: '#3d8fd6', K: '#b8792e', J: '#ff8a1c', O: '#c46aff', H: '#ffffff', F: '#9ad8ff' };
   function minikarte(m, name) {
     var k = BS.karte(m, name), z = k.zeilen, s = 4;
     var c = document.createElement('canvas'); c.width = z[0].length * s; c.height = z.length * s; c.className = 'minikarte';
@@ -77,8 +82,8 @@
 
   // ---------- Bildschirme ----------
   var screen = '';   // '' = Startbildschirm
-  var TITEL = { pass: 'Schuljahr-Pass', kaempfer: 'Kämpfer', shop: 'Shop', aufgaben: 'Tagesaufgaben', weg: 'Pokal-Weg', modi: 'Modus wählen', freunde: 'Mit Freunden spielen' };
-  function oeffnen(s) { screen = s; klick(); aufbauen(); screenEl.scrollTop = 0; }
+  var TITEL = { profil: 'Profil & Freunde', pass: 'Schuljahr-Pass', kaempfer: 'Kämpfer', shop: 'Shop', aufgaben: 'Tagesaufgaben', weg: 'Pokal-Weg', modi: 'Modus wählen', freunde: 'Mit Freunden spielen' };
+  function oeffnen(s) { screen = s; klick(); aufbauen(); screenEl.scrollTop = 0; if (s === 'profil') statusFragen(); }
   document.getElementById('zurueck').addEventListener('click', function () { oeffnen(''); });
   addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menue.hidden && screen && truheEl.hidden) oeffnen(''); });
 
@@ -96,7 +101,8 @@
     var r = BS.rang(konto.rang), g = gesamt(), n = naechsteStation(), vorige = 0;
     BS.WEG.forEach(function (w) { if (w.pokale <= g) vorige = w.pokale; });
     profilEl.innerHTML = '';
-    var emblem = el('span', 'emblem', '◆'); emblem.style.color = r.farbe; profilEl.appendChild(emblem);
+    var emblem = el('span', 'emblem'); emblem.style.borderColor = r.farbe;
+    emblem.appendChild(bild(BS.kaempfer(konto.avatar || wahl), 'normal', skinVon(konto.avatar || wahl))); profilEl.appendChild(emblem);
     var pt = el('span', 'pt');
     pt.appendChild(el('b', '', meinName || 'Spieler'));
     var zeile = el('span', 'pz'); zeile.appendChild(el('span', 'pok', '🏆 ' + g)); var rn = el('span', 'rn', r.name); rn.style.color = r.farbe; zeile.appendChild(rn); pt.appendChild(zeile);
@@ -105,7 +111,7 @@
     waehrungEl.innerHTML = '';
     var m = el('span', 'muenzchip'); m.appendChild(el('i', 'muenze')); m.appendChild(el('b', '', String(muenzen))); waehrungEl.appendChild(m);
   }
-  profilEl.addEventListener('click', function () { oeffnen('weg'); });
+  profilEl.addEventListener('click', function () { oeffnen('profil'); });
 
   function homeAufbauen() {
     var offen = offeneSachen();
@@ -147,7 +153,7 @@
     // Spielen-Knopf
     losKnopf.disabled = false; losKnopf.className = 'spielenknopf';
     if (online) {
-      if (istHost()) { losKnopf.textContent = 'START'; losKnopf.disabled = online.spieler.length < 2 || (m.team && online.spieler.length > 6); }
+      if (istHost()) { losKnopf.textContent = 'START'; losKnopf.disabled = online.spieler.length < 2 || online.spieler.length > (m.gross ? 10 : m.team ? 6 : 8); }
       else { losKnopf.textContent = online.laeuft ? 'LÄUFT …' : 'WARTEN …'; losKnopf.disabled = true; }
     } else losKnopf.textContent = 'SPIELEN';
   }
@@ -161,7 +167,7 @@
     if (!screen) { homeAufbauen(); return; }
     screenTitel.textContent = TITEL[screen];
     seite.innerHTML = '';
-    ({ pass: seitePass, kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg, modi: seiteModi, freunde: seiteFreunde })[screen]();
+    ({ profil: seiteProfil, pass: seitePass, kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg, modi: seiteModi, freunde: seiteFreunde })[screen]();
   }
 
   // ---------- Bildschirm: Modi ----------
@@ -270,12 +276,13 @@
       li.appendChild(bild(d, 'normal', sp.skin));
       li.appendChild(el('span', '', (sp.id === online.host ? '👑 ' : '') + sp.name + (sp.id === Netz.ich ? ' (du)' : '')));
       li.appendChild(el('span', 'klein', d.name + ' · St. ' + (sp.stufe || 1)));
-      if (m.team) li.appendChild(el('span', 'tm t' + (i % 2), i % 2 ? 'Rot' : 'Blau'));
+      if (m.koop) li.appendChild(el('span', 'tm t0', 'Team'));
+      else if (m.team) li.appendChild(el('span', 'tm t' + (i % 2), i % 2 ? 'Rot' : 'Blau'));
       else if (m.id === 'duo') li.appendChild(el('span', 'tm t' + (Math.floor(i / 2) % 2), 'Duo ' + (Math.floor(i / 2) + 1)));
       ul.appendChild(li);
     });
     box.appendChild(ul);
-    var plaetze = m.team ? 6 : 8;
+    var plaetze = m.gross ? 10 : m.team ? 6 : 8;
     box.appendChild(el('p', 'tipp', online.spieler.length + ' von ' + plaetze + ' Plätzen · ' + (online.spieler.length < 2 ? 'Warte auf mindestens einen Freund.' : 'Keine Bots – nur ihr.')));
     // Raumregeln (nur Host ändert sie)
     var rg = online.regeln || { mod: 'heute', zeit: 1 };
@@ -299,7 +306,7 @@
     if (onlineStatus) box.appendChild(el('p', 'status', onlineStatus));
     box.appendChild(knopf(istHost() ? 'Zurück und START drücken' : 'Zurück zum Start', 'gelb', function () { oeffnen(''); }));
   }
-  function meineDaten() { return { kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl) }; }
+  function meineDaten() { var w = wahlVon(wahl); return { kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), trickWahl: w.trick, talentWahl: w.talent }; }
   function verbinden(nachricht) {
     letzteSuche = '';
     if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; aufbauen(); return; }
@@ -339,6 +346,13 @@
       modifikator: rg.mod && rg.mod !== 'heute' ? rg.mod : '', zeitFaktor: rg.zeit || 1 }, zeigeErgebnis);
   }
   Netz.bei(function (o) {
+    if (o.t === 'freundstatus') {
+      freundStatus = {}; o.liste.forEach(function (f) { freundStatus[f.name.toLowerCase()] = f; });
+      if (!menue.hidden && screen === 'profil') aufbauen();
+      return;
+    }
+    if (o.t === 'einladung') { if (!imSpiel) einladungZeigen(o); return; }
+    if (o.t === 'eingeladen') { onlineStatus = 'Einladung an ' + o.an + ' geschickt – du bist jetzt im Raum.'; screen = 'freunde'; if (!imSpiel) aufbauen(); return; }
     if (o.t === 'suche') {
       var mm = modusVon(o.modus);
       sucheZeigen('Suche Spieler für ' + mm.name + ' …', o.anzahl < 2 ? 'Noch niemand da – warte auf einen zweiten Spieler (' + o.sekunden + ' s).' : o.anzahl + ' Spieler gefunden – gleich geht es los!');
@@ -370,7 +384,8 @@
     Pixel.sfx.tone(523, 0.08, 'square', 0.06); Pixel.sfx.tone(784, 0.12, 'square', 0.06, null, 0.08);
     menue.hidden = true; ergebnis.hidden = true;
     laeuftRang = rangspiel && rangModusOk(modus);
-    var opt = { kaempfer: wahl, modus: modus, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), emotes: konto.emotes, rang: laeuftRang, schwierigkeit: schwierigkeit };
+    var opt = { kaempfer: wahl, modus: modus, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), emotes: konto.emotes, rang: laeuftRang, schwierigkeit: schwierigkeit,
+      trickWahl: wahlVon(wahl).trick, talentWahl: wahlVon(wahl).talent };
     var start = function () { BS.starten(opt, zeigeErgebnis); };
     if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('10px "Press Start 2P"'), document.fonts.load('10px "Lilita One"')]).then(start, start); else start();
   }
@@ -410,8 +425,25 @@
     function zeile(titel, text, zu) { var p = el('p', 'ab' + (zu ? ' zu' : '')); p.appendChild(el('b', '', titel + ' ')); p.appendChild(document.createTextNode(text)); t.appendChild(p); }
     zeile('Angriff:', d.angriffText);
     zeile('Super:', d.superText);
-    zeile('Trick – ' + d.trickName + ':', d.trickText + (sd < BS.TRICK_AB ? ' 🔒 ab Stufe ' + BS.TRICK_AB : ' (3× pro Runde)'), sd < BS.TRICK_AB);
-    zeile('Talent – ' + d.talentName + ':', d.talentText + (sd < BS.TALENT_AB ? ' 🔒 ab Stufe ' + BS.TALENT_AB : ''), sd < BS.TALENT_AB);
+    var wv = wahlVon(d.id);
+    function auswahl(titel, liste, aktiv, ab, schluessel) {
+      var box = el('div', 'auswahl' + (sd < ab ? ' zu' : ''));
+      box.appendChild(el('b', '', titel + (sd < ab ? ' 🔒 ab Stufe ' + ab : '')));
+      var reihe = el('div', 'auswahlreihe');
+      liste.forEach(function (x, i) {
+        var b = el('button', 'wahlknopf' + (aktiv === i ? ' an' : '')); b.type = 'button';
+        b.setAttribute('aria-pressed', aktiv === i ? 'true' : 'false');
+        b.appendChild(el('strong', '', x.name)); b.appendChild(el('small', '', x.text));
+        b.addEventListener('click', function () {
+          var w0 = konto.wahlen[d.id] = konto.wahlen[d.id] || { trick: 0, talent: 0 };
+          w0[schluessel] = i; speichern(); klick(); wahlMelden(); aufbauen();
+        });
+        reihe.appendChild(b);
+      });
+      box.appendChild(reihe); t.appendChild(box);
+    }
+    auswahl('Trick (3× pro Runde)', d.tricks, wv.trick, BS.TRICK_AB, 'trick');
+    auswahl('Talent', d.talente, wv.talent, BS.TALENT_AB, 'talent');
     zeile('Ausrüstung:', 'Zwei Teile anlegen' + (sd < BS.AUSRUESTUNG_AB ? ' 🔒 ab Stufe ' + BS.AUSRUESTUNG_AB : ''), sd < BS.AUSRUESTUNG_AB);
     zeile('Ultra:', 'Nach vollem Super lädt sich eine lila Leiste. Dann 5 Sekunden schneller, stärker und zäher.' + (sd < BS.ULTRA_AB ? ' 🔒 ab Stufe ' + BS.ULTRA_AB : ''), sd < BS.ULTRA_AB);
 
@@ -658,6 +690,82 @@
     if (w.art === 'skin') { var p = w.wert.split('/'); if (!hatSkin(p[0], p[1])) (konto.skins[p[0]] = konto.skins[p[0]] || []).push(p[1]); }
   }
 
+  // ---------- Profil & Freunde ----------
+  var freundStatus = {}, statusUhr = null, einladungEl = document.createElement('div');
+  einladungEl.className = 'einladung'; einladungEl.hidden = true; document.body.appendChild(einladungEl);
+  function anmelden() { if (meinName && meinName.length >= 2) Netz.verbinden().then(function () { Netz.senden({ t: 'hallo', name: meinName }); statusFragen(); }, function () {}); }
+  function statusFragen() { if (Netz.verbunden() && konto.freunde.length) Netz.senden({ t: 'status', namen: konto.freunde }); }
+  function seiteProfil() {
+    var r = BS.rang(konto.rang), st = konto.stats;
+    var kopf = el('div', 'profilkopf');
+    var av = el('div', 'avatar'); av.style.borderColor = r.farbe; av.appendChild(bild(BS.kaempfer(konto.avatar || wahl), 'super', skinVon(konto.avatar || wahl))); kopf.appendChild(av);
+    var pt = el('div', 'ptext');
+    var name = el('input'); name.type = 'text'; name.maxLength = 16; name.placeholder = 'Dein Name'; name.value = meinName; name.setAttribute('aria-label', 'Dein Name');
+    name.addEventListener('change', function () { meinName = name.value.trim(); Pixel.set('bravostars.name', meinName); anmelden(); kopfAufbauen(); });
+    pt.appendChild(name);
+    var rn = el('b', 'rangname', '◆ ' + r.name + ' · ' + konto.rang + ' Rangpunkte'); rn.style.color = r.farbe; pt.appendChild(rn);
+    pt.appendChild(el('small', '', 'Bester Rang: ' + BS.RAENGE[konto.rangHoch || 0] + ' · ' + gesamt() + ' 🏆 insgesamt'));
+    kopf.appendChild(pt); seite.appendChild(kopf);
+
+    seite.appendChild(el('h3', '', 'Profilbild'));
+    var avs = el('div', 'avatare');
+    BS.KAEMPFER.forEach(function (d) {
+      var b = el('button', 'avatarwahl' + ((konto.avatar || wahl) === d.id ? ' an' : '')); b.type = 'button'; b.setAttribute('aria-label', d.name);
+      b.appendChild(bild(d, 'normal', skinVon(d.id)));
+      b.addEventListener('click', function () { konto.avatar = d.id; speichern(); klick(); aufbauen(); });
+      avs.appendChild(b);
+    });
+    seite.appendChild(avs);
+
+    seite.appendChild(el('h3', '', 'Statistik'));
+    var lieb = '', liebN = 0; for (var kid in st.proKaempfer) if (st.proKaempfer[kid] > liebN) { liebN = st.proKaempfer[kid]; lieb = kid; }
+    var werte = [['🎮', 'Runden', st.runden], ['🏆', 'Siege', st.siege], ['⭐', 'MVP', st.mvp], ['✖', 'K.o.s', st.kos],
+      ['💥', 'Schaden', st.schaden], ['⚽', 'Tore', st.tore], ['⚡', 'Supers', st.supers], ['❤', 'Lieblingskämpfer', lieb ? BS.kaempfer(lieb).name + ' (' + liebN + ')' : '–']];
+    var sg = el('div', 'statgitter');
+    werte.forEach(function (w) { var c = el('div', 'statkarte'); c.appendChild(el('span', 'si', w[0])); c.appendChild(el('b', '', String(w[2]))); c.appendChild(el('small', '', w[1])); sg.appendChild(c); });
+    seite.appendChild(sg);
+
+    seite.appendChild(el('h3', '', 'Freunde'));
+    var fb = el('div', 'online');
+    var z = el('div', 'zeile');
+    var neu = el('input'); neu.type = 'text'; neu.maxLength = 16; neu.placeholder = 'Name deines Freundes'; neu.setAttribute('aria-label', 'Name deines Freundes');
+    var dazu = function () { var n = neu.value.trim(); if (n.length < 2 || konto.freunde.some(function (f) { return f.toLowerCase() === n.toLowerCase(); })) return; konto.freunde.push(n); speichern(); aufbauen(); anmelden(); };
+    neu.addEventListener('keydown', function (e) { if (e.key === 'Enter') dazu(); });
+    z.appendChild(neu); z.appendChild(knopf('Hinzufügen', 'gelb', dazu)); fb.appendChild(z);
+    if (!konto.freunde.length) fb.appendChild(el('p', 'tipp', 'Füg Freunde mit ihrem Bravo-Stars-Namen hinzu. Dann siehst du, wer online ist, und kannst sie direkt einladen.'));
+    var ul = el('ul');
+    konto.freunde.forEach(function (n) {
+      var fs = freundStatus[n.toLowerCase()] || {};
+      var li = el('li');
+      li.appendChild(el('span', 'onlinepunkt' + (fs.online ? ' an' : ''), ''));
+      li.appendChild(el('span', '', n));
+      li.appendChild(el('span', 'klein', fs.online ? fs.wo : 'offline'));
+      var ein = knopf('Einladen', 'blau', function () {
+        if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein.'; return; }
+        var md = meineDaten(); md.t = 'einladen'; md.an = n; md.modus = modusVon(modus).training ? 'sterne' : modus; md.name = meinName;
+        Netz.verbinden().then(function () { Netz.senden({ t: 'hallo', name: meinName }); Netz.senden(md); }, function () {});
+      });
+      ein.disabled = !fs.online; ein.style.marginLeft = 'auto'; li.appendChild(ein);
+      li.appendChild(knopf('✕', 'rot klein', function () { konto.freunde = konto.freunde.filter(function (f) { return f !== n; }); speichern(); aufbauen(); }));
+      ul.appendChild(li);
+    });
+    fb.appendChild(ul);
+    if (onlineStatus) fb.appendChild(el('p', 'status', onlineStatus));
+    seite.appendChild(fb);
+  }
+  function einladungZeigen(o) {
+    einladungEl.innerHTML = '';
+    var b = el('div', 'einladungkasten');
+    b.appendChild(el('b', '', '👥 ' + o.von + ' lädt dich ein!'));
+    b.appendChild(el('small', '', 'Modus: ' + modusVon(o.modus).name + ' · Raum ' + o.code));
+    var r = el('div', 'knoepfe');
+    r.appendChild(knopf('Annehmen', 'gelb', function () { einladungEl.hidden = true; screen = 'freunde'; menue.hidden = false; ergebnis.hidden = true; verbinden({ t: 'beitreten', code: o.code }); }));
+    r.appendChild(knopf('Später', '', function () { einladungEl.hidden = true; }));
+    b.appendChild(r); einladungEl.appendChild(b); einladungEl.hidden = false;
+    Pixel.sfx.tone(880, 0.1, 'triangle', 0.06); Pixel.sfx.tone(1320, 0.15, 'triangle', 0.06, null, 0.1);
+  }
+  setInterval(function () { if (!menue.hidden && screen === 'profil') statusFragen(); }, 8000);
+
   // ---------- Schuljahr-Pass ----------
   function passStand() {
     var sa = BS.saison();
@@ -752,6 +860,10 @@
     // Münzen, Rangpunkte, Aufgaben
     var gewinn = 0, extra = [], rangText = '';
     if (zaehlt) {
+      var stt = konto.stats;
+      stt.runden++; if (e.ergebnis === 'sieg') stt.siege++; if (e.mvp) stt.mvp++;
+      stt.kos += e.kos || 0; stt.schaden += e.schaden || 0; stt.tore += e.tore || 0; stt.supers += e.supers || 0;
+      stt.proKaempfer[wahl] = (stt.proKaempfer[wahl] || 0) + 1;
       if (modus === 'royale') gewinn = [0, 40, 32, 26, 20, 15, 12, 10, 8][e.platz || 8] || 8;
       else if (duo) gewinn = [0, 40, 28, 18, 10][e.platz || 4] || 10;
       else gewinn = e.ergebnis === 'sieg' ? 30 : e.ergebnis === 'unentschieden' ? 18 : 10;
@@ -830,4 +942,5 @@
   tonText();
   aufbauen();
   menue.hidden = false;
+  anmelden();
 })();

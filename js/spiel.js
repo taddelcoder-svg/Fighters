@@ -47,6 +47,7 @@
 
     var modus = opt.modus, duo = modus === 'duo', royaleArt = modus === 'royale' || duo, team = !royaleArt;
     var training = modus === 'training', rangspiel = !!opt.rang;
+    var koop = modus === 'boss' || modus === 'wellen', gross = modus === 'grosskeile', eroberung = modus === 'eroberung';
     var mod = training ? 'keiner' : (opt.modifikator || (opt.netz && opt.netz.init && opt.netz.init.mod) || BS.modifikatorHeute(modus));
     var zeitFaktor = opt.zeitFaktor || 1;
     // Bot-Stärke: Leicht / Normal / Schwer (Rangspiel ist immer Schwer und noch etwas besser)
@@ -73,15 +74,16 @@
     var feld = new Uint8Array(B * H), kistenHp = {};
     karte.zeilen.forEach(function (z, y) {
       for (var x = 0; x < B; x++) {
-        var c = z[x], v = c === '#' ? 1 : c === 'b' ? 2 : c === 'w' ? 3 : c === 'K' ? 4 : 0;
+        var c = z[x], v = c === '#' ? 1 : c === 'b' ? 2 : c === 'w' ? 3 : c === 'K' ? 4 : c === 'J' ? 5 : c === 'O' ? 6 : c === 'H' ? 7 : c === 'F' ? 8 : 0;
         feld[y * B + x] = v;
         if (v === 4) kistenHp[y * B + x] = 90;
+        if (v === 8) kistenHp[y * B + x] = 40;
       }
     });
     function fAt(tx, ty) { if (tx < 0 || ty < 0 || tx >= B || ty >= H) return 1; return feld[ty * B + tx]; }
     function fPx(x, y) { return fAt(Math.floor(x / T), Math.floor(y / T)); }
-    function blockiertLauf(v) { return v === 1 || v === 3 || v === 4; }
-    function blockiertSchuss(v) { return v === 1 || v === 4; }
+    function blockiertLauf(v) { return v === 1 || v === 3 || v === 4 || v === 8; }
+    function blockiertSchuss(v) { return v === 1 || v === 4 || v === 8; }
 
     // ---------- Untergrund vorzeichnen ----------
     var boden = document.createElement('canvas'); boden.width = W; boden.height = HH;
@@ -98,6 +100,21 @@
         bctx.fillStyle = '#8a5a34'; bctx.fillRect(x, y, T, T - 10);
         bctx.fillStyle = '#a8703f'; bctx.fillRect(x + 3, y + 3, T - 6, T - 18);
         bctx.fillStyle = 'rgba(0,0,0,.25)'; bctx.fillRect(x, y + T - 4, T, 4);
+      } else if (v === 5) {
+        bctx.fillStyle = '#5a3a1a'; bctx.beginPath(); bctx.arc(x + T / 2, y + T / 2, 16, 0, Math.PI * 2); bctx.fill();
+        bctx.fillStyle = '#ffb84a'; bctx.beginPath(); bctx.arc(x + T / 2, y + T / 2, 12, 0, Math.PI * 2); bctx.fill();
+        bctx.fillStyle = '#fff'; bctx.beginPath(); bctx.moveTo(x + T / 2, y + 10); bctx.lineTo(x + T / 2 + 7, y + 20); bctx.lineTo(x + T / 2 - 7, y + 20); bctx.fill();
+      } else if (v === 6) {
+        bctx.fillStyle = '#2a1060'; bctx.beginPath(); bctx.ellipse(x + T / 2, y + T / 2, 17, 12, 0, 0, Math.PI * 2); bctx.fill();
+        bctx.strokeStyle = '#c46aff'; bctx.lineWidth = 4; bctx.beginPath(); bctx.ellipse(x + T / 2, y + T / 2, 16, 11, 0, 0, Math.PI * 2); bctx.stroke();
+      } else if (v === 7) {
+        bctx.fillStyle = '#e8f8ea'; bctx.fillRect(x + 4, y + 4, T - 8, T - 8);
+        bctx.fillStyle = '#2aa84a'; bctx.fillRect(x + T / 2 - 4, y + 9, 8, T - 18); bctx.fillRect(x + 9, y + T / 2 - 4, T - 18, 8);
+      } else if (v === 8) {
+        bctx.fillStyle = '#5a6a7a'; bctx.fillRect(x, y + 8, T, T - 8);
+        bctx.fillStyle = 'rgba(160,220,255,.85)'; bctx.fillRect(x + 3, y + 2, T - 6, T - 14);
+        bctx.fillStyle = 'rgba(255,255,255,.7)'; bctx.fillRect(x + 7, y + 6, 4, 14); bctx.fillRect(x + 14, y + 6, 3, 8);
+        bctx.fillStyle = '#5a6a7a'; bctx.fillRect(x + T / 2 - 1, y + 2, 3, T - 14);
       } else if (v === 4) {
         bctx.fillStyle = '#7a4a1e'; bctx.fillRect(x + 3, y + 3, T - 6, T - 6);
         bctx.fillStyle = '#b8792e'; bctx.fillRect(x + 6, y + 6, T - 12, T - 12);
@@ -117,11 +134,12 @@
 
     function feldWeg(tx, ty) {
       var v = fAt(tx, ty);
-      if (v !== 1 && v !== 4) return;
+      if (v !== 1 && v !== 4 && v !== 8) return;
       feld[ty * B + tx] = 0;
       if (host) ev.push(['w', tx, ty]);
       if (v === 4) energie.push({ x: (tx + 0.5) * T, y: (ty + 0.5) * T });
-      for (var i = 0; i < 6; i++) fx({ art: 'splitter', x: (tx + 0.5) * T, y: (ty + 0.5) * T, vx: rnd(-150, 150), vy: rnd(-150, 150), t: 0, d: 0.5, farbe: v === 4 ? '#b8792e' : '#8a5a34' });
+      for (var i = 0; i < 6; i++) fx({ art: 'splitter', x: (tx + 0.5) * T, y: (ty + 0.5) * T, vx: rnd(-150, 150), vy: rnd(-150, 150), t: 0, d: 0.5, farbe: v === 4 ? '#b8792e' : v === 8 ? '#bfe8ff' : '#8a5a34' });
+      if (v === 8) sfx.noise(0.25, 0.2, 3000);
       feldZeichnen(tx, ty);
       wegeNeu = true;
     }
@@ -133,7 +151,8 @@
       mehr = mehr || {};
       var tal = {}, f = 1 + (stufe - 1) * 0.07;
       // Talent und Ausrüstung zu einem Satz Faktoren zusammenfassen
-      var quellen = [stufe >= BS.TALENT_AB ? (def.talent || {}) : {}];
+      var talentWahl = def.talente && def.talente[mehr.talentWahl || 0] ? mehr.talentWahl || 0 : 0, trickWahl = def.tricks && def.tricks[mehr.trickWahl || 0] ? mehr.trickWahl || 0 : 0;
+      var quellen = [stufe >= BS.TALENT_AB ? ((def.talente && def.talente[talentWahl].mod) || def.talent || {}) : {}];
       if (stufe >= BS.AUSRUESTUNG_AB) (mehr.ausruestung || []).slice(0, 2).forEach(function (id) { var t = BS.teil(id); if (t) quellen.push(t.mod); });
       quellen.forEach(function (q) { for (var key in q) tal[key] = key === 'biss' || key === 'regenPause' ? q[key] : (tal[key] || 1) * q[key]; });
       var hp0 = Math.round(def.hp * f * (tal.hp || 1));
@@ -141,7 +160,9 @@
         def: def, team: tm, spieler: istSpieler, x: 0, y: 0, r: def.radius || 16,
         stufe: stufe, dmgF: f * (tal.schaden || 1), tempoF: tal.tempo || 1, ladeF: tal.laden || 1, superF: tal.superF || 1,
         regenPause: REGEN_PAUSE * (tal.regenPause || 1), regenTempo: tal.regenTempo || 1, biss: tal.biss || 0,
-        tricks: stufe >= BS.TRICK_AB ? 3 : 0, trickT: 0, verliebt: 0, verliebtZu: null,
+        tricks: stufe >= BS.TRICK_AB && !def.npc ? 3 : 0, trickT: 0, verliebt: 0, verliebtZu: null,
+        trickArt: def.tricks ? def.tricks[trickWahl].art : def.trick, trickName: def.tricks ? def.tricks[trickWahl].name : def.trickName,
+        trickWahl: trickWahl, talentWahl: talentWahl,
         skin: BS.skin(def.id, mehr.skin), ausruestung: (mehr.ausruestung || []).slice(0, 2),
         ultraOk: stufe >= BS.ULTRA_AB, ultraLadung: 0, ultra: 0, emote: null, kopfgeld: 2,
         statSchaden: 0, statSupers: 0, statTore: 0,
@@ -171,7 +192,8 @@
     var spawns = [];
     if (gast) {
       netz.init.k.forEach(function (z) {
-        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich, z[4], { skin: z[5], ausruestung: z[6] });
+        var k = neuerKaempfer(BS.kaempfer(z[0]), z[1], z[3] === netz.ich, z[4], { skin: z[5], ausruestung: z[6], trickWahl: z[7], talentWahl: z[8] });
+        if (z[9]) { k.hp = k.maxHp = z[9]; k.npc = BS.kaempfer(z[0]).npc; }
         k.ki = null; k.name = z[2]; k.mensch = z[3];
         if (z[3] === netz.ich) spieler = k;
       });
@@ -181,12 +203,12 @@
       var bi = 0, schnitt = 0;
       netz.spieler.forEach(function (m) { schnitt += (m.stufe || 1) / netz.spieler.length; });
       var mensch = function (m, tm) {
-        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich, m.stufe, { skin: m.skin, ausruestung: m.ausruestung });
+        var k = neuerKaempfer(BS.kaempfer(m.kaempfer), tm, m.id === netz.ich, m.stufe, { skin: m.skin, ausruestung: m.ausruestung, trickWahl: m.trickWahl, talentWahl: m.talentWahl });
         k.name = m.name; k.mensch = m.id;
         if (m.id === netz.ich) spieler = k; else { k.ki = null; k.eingabe = { mx: 0, my: 0, b: 0 }; }
       };
       // Online spielen nur Menschen – keine Bots
-      if (team) netz.spieler.forEach(function (m) { mensch(m, m.team); });
+      if (team) netz.spieler.forEach(function (m) { mensch(m, koop ? 0 : m.team); });
       else netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
     } else if (training) {
       spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
@@ -194,6 +216,13 @@
         var puppe = neuerKaempfer(gegnerPool[gt], 1, false, 1);
         puppe.ki = null; puppe.eingabe = { mx: 0, my: 0, b: Math.PI / 2 }; puppe.hp = puppe.maxHp = 600; puppe.name = 'Puppe';
       }
+    } else if (koop) {
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
+      bot(gegnerPool[0], 0, opt.stufe);
+      bot(gegnerPool[1], 0, opt.stufe);
+    } else if (gross) {
+      spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
+      for (var gg = 0; gg < 9; gg++) bot(gegnerPool[gg % gegnerPool.length], gg < 4 ? 0 : 1, opt.stufe);
     } else if (team) {
       spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
       bot(gegnerPool[0], 0, opt.stufe);
@@ -203,16 +232,30 @@
       spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
       for (var g2 = 0; g2 < 7; g2++) bot(gegnerPool[g2 % gegnerPool.length], duo ? Math.floor((g2 + 1) / 2) : g2 + 1, opt.stufe);
     }
+    if (koop && !gast) {
+      var menschen = kaempfer.filter(function (k) { return k.team === 0; }).length;
+      if (modus === 'boss') {
+        var boss = neuerKaempfer(BS.npc('robo'), 1, false, 1);
+        boss.npc = 'boss'; boss.hp = boss.maxHp = 1600 + menschen * 1100; boss.name = 'Robo-Hausmeister';
+        boss.ki = neueKi(); boss.ki.spezialT = 5;
+      } else {
+        for (var mi = 0; mi < 22; mi++) {
+          var m0 = neuerKaempfer(BS.npc('klecks'), 1, false, 1);
+          m0.npc = 'monster'; m0.tot = true; m0.weg = true; m0.respawn = 1e9; m0.name = 'Kreideklecks'; m0.ki = neueKi();
+        }
+      }
+    }
     function freiesFeld(tx, ty) {
       for (var rad = 0; rad < 6; rad++) for (var dy = -rad; dy <= rad; dy++) for (var dx = -rad; dx <= rad; dx++) {
-        var v = fAt(tx + dx, ty + dy); if (v === 0 || v === 2) return { x: (tx + dx + 0.5) * T, y: (ty + dy + 0.5) * T };
+        var v = fAt(tx + dx, ty + dy); if (v === 0 || v === 2 || v === 7) return { x: (tx + dx + 0.5) * T, y: (ty + dy + 0.5) * T };
       }
       return { x: (tx + 0.5) * T, y: (ty + 0.5) * T };
     }
     function spawnPunkt(k) {
       if (team) {
         var mitglieder = kaempfer.filter(function (o) { return o.team === k.team; });
-        var i = mitglieder.indexOf(k), cx = Math.floor(B / 2) + (i - 1) * 3;
+        var i = mitglieder.indexOf(k), cx = Math.round(B / 2 - 0.5 + (i - (mitglieder.length - 1) / 2) * (mitglieder.length > 3 ? 2.5 : 3));
+        if (k.npc) return { x: W / 2, y: 4 * T };
         return freiesFeld(k.team === 0 ? B - 1 - cx : cx, k.team === 0 ? H - 2 : 1);
       }
       var n = kaempfer.indexOf(k), w = n / kaempfer.length * Math.PI * 2 + Math.PI / 2;
@@ -223,7 +266,7 @@
       return freiesFeld(Math.round(B / 2 - 0.5 + Math.cos(w) * (B / 2 - 3)), Math.round(H / 2 - 0.5 + Math.sin(w) * (H / 2 - 3)));
     }
     kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); k.spawnT = 0.45; });
-    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, mod: mod, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung]; }) } });
+    if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, mod: mod, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung, k.trickWahl, k.talentWahl, k.npc ? k.maxHp : 0]; }) } });
 
     // ---------- Wege für die Bots (Breitensuche auf dem Raster) ----------
     var wegeNeu = false, wegCache = {};
@@ -366,7 +409,7 @@
       if (host) ev.push(['kf', e.a, e.b, e.art]);
     }
     function sterben(k, von) {
-      feedPlus(von, k);
+      if (k.npc !== 'monster') feedPlus(von, k);
       fx({ art: 'geist', ki: kaempfer.indexOf(k), x: k.x, y: k.y, t: 0, d: 0.9, links: Math.cos(k.blick) < 0 });
       k.tot = true; k.hp = 0; k.dash = null; k.stoss = null; k.salve = [];
       for (var i = 0; i < 14; i++) fx({ art: 'splitter', x: k.x, y: k.y - 14, vx: rnd(-200, 200), vy: rnd(-260, 80), t: 0, d: 0.7, farbe: k.def.farbe });
@@ -376,7 +419,7 @@
         for (var s = 0; s < k.sterne; s++) { var w = rnd(0, Math.PI * 2), v = rnd(60, 200); sterne.push({ x: k.x, y: k.y, vx: Math.cos(w) * v, vy: Math.sin(w) * v, sperre: 0.6 }); }
         k.sterne = 0;
       }
-      if (modus === 'kloppe' && von && von.team !== k.team) teamKos[von.team]++;
+      if ((modus === 'kloppe' || gross) && von && von.team !== k.team) teamKos[von.team]++;
       if (modus === 'kopfgeld' && von && von.team !== k.team) {
         teamKopf[von.team] += k.kopfgeld;
         zahl({ x: k.x, y: k.y - 60, t: -0.2, text: '+' + k.kopfgeld + ' ★', farbe: '#ffd23f' });
@@ -393,7 +436,8 @@
             kaempfer.forEach(function (o) { if (o.team === k.team) o.platz = pl; });
           }
         } else k.platz = kaempfer.filter(function (o) { return !o.tot; }).length + 1;
-      } else k.respawn = training && !k.spieler ? 2 : 3;
+      } else k.respawn = training && !k.spieler ? 2 : koop ? 4 : 3;
+      if (k.npc) { k.respawn = 1e9; k.weg = true; if (k.npc === 'boss') abschluss(0); }
     }
 
     // ---------- Angriffe ----------
@@ -452,7 +496,7 @@
       var z = zielPunkt(k, w, reich * 0.7); kisteTreffen(Math.floor(z.x / T), Math.floor(z.y / T), dmg);
     }
     function kisteTreffen(tx, ty, dmg) {
-      if (fAt(tx, ty) !== 4) return false;
+      var kv = fAt(tx, ty); if (kv !== 4 && kv !== 8) return false;
       var i = ty * B + tx; kistenHp[i] -= dmg;
       fx({ art: 'splitter', x: (tx + 0.5) * T, y: (ty + 0.5) * T, vx: rnd(-80, 80), vy: rnd(-120, 0), t: 0, d: 0.3, farbe: '#b8792e' });
       if (kistenHp[i] <= 0) feldWeg(tx, ty);
@@ -572,8 +616,14 @@
     var tore = [0, 0], torAnsage = 0, torTeam = 0, TOR_X0 = 8 * T, TOR_X1 = 13 * T;
     var huegel = [0, 0], huegelHalter = -1, ZONE_R = 2.6 * T;
     var teamKopf = [0, 0];
-    var tresore = modus === 'tresor' ? [{ team: 0, x: W / 2, y: HH - 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }, { team: 1, x: W / 2, y: 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }] : [];
+    var welle = 0, wellenPause = 3, WELLEN = 8;
+    var zonen = eroberung ? [{ x: 4.5 * T, y: HH / 2, f: 0, besitzer: -1 }, { x: W / 2, y: HH / 2, f: 0, besitzer: -1 }, { x: W - 4.5 * T, y: HH / 2, f: 0, besitzer: -1 }] : [], zonenPunkte = [0, 0], ZONE = 1.7 * T;
+    var tresore = modus === 'wellen' ? [{ team: 0, x: W / 2, y: HH - 3.5 * T, r: 26, hp: 1600, max: 1600, blitz: 0, glocke: true }] : modus === 'tresor' ? [{ team: 0, x: W / 2, y: HH - 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }, { team: 1, x: W / 2, y: 3.5 * T, r: 30, hp: 2600, max: 2600, blitz: 0 }] : [];
     if (modus === 'kopfgeld') dauer = 120;
+    if (modus === 'boss') dauer = 180;
+    if (modus === 'wellen') dauer = 9999;
+    if (gross) dauer = 150;
+    if (eroberung) dauer = 150;
     if (modus === 'tresor') dauer = 150;
     if (!royaleArt) dauer = Math.round(dauer * zeitFaktor);
     if (training) dauer = 9999;
@@ -634,8 +684,9 @@
       k.tricks--; k.trickT = 4; k.zuletztAktiv = zeit;
       fx({ art: 'ring', x: k.x, y: k.y, r: 30, t: 0, d: 0.3, farbe: '#6ef08a' });
       sfx.tone(520, 0.06, 'triangle', 0.06, 1040);
-      if (k === spieler || k.mensch) zahl({ x: k.x, y: k.y - 64, t: -0.3, text: k.def.trickName.toUpperCase(), farbe: '#9affb0' });
-      switch (k.def.trick) {
+      if (k === spieler || k.mensch) zahl({ x: k.x, y: k.y - 64, t: -0.3, text: (k.trickName || '').toUpperCase(), farbe: '#9affb0' });
+      switch (k.trickArt) {
+        case 'schild': k.schild = Math.max(k.schild, 1.5); break;
         case 'nachladen': k.munition = 3; k.ladeT = 0; break;
         case 'ring': heilen(k, k.maxHp * 0.35); break;
         case 'borschtsch': heilen(k, k.maxHp * 0.4); break;
@@ -707,7 +758,7 @@
     function modusSchritt(dt) {
       modSchritt(dt);
       // Online ohne Bots: hat ein Team niemanden mehr, gewinnt das andere
-      if (host && team && !training && zeit > 1) {
+      if (host && team && !training && !koop && zeit > 1) {
         for (var tt = 0; tt < 2; tt++) if (!kaempfer.some(function (k) { return k.team === tt && !k.weg; })) return abschluss(1 - tt);
       }
       if (ball) { if (!ball.da) { ball.da = true; ballZurueck(); } if (torAnsage > 0) torAnsage -= dt; }
@@ -748,9 +799,39 @@
         if (zeit >= dauer) return abschluss(teamKopf[0] > teamKopf[1] ? 0 : teamKopf[0] < teamKopf[1] ? 1 : -1);
       } else if (training) {
         return;
-      } else if (modus === 'kloppe') {
-        if (teamKos[0] >= 10) return abschluss(0);
-        if (teamKos[1] >= 10) return abschluss(1);
+      } else if (modus === 'boss') {
+        if (zeit >= dauer) return abschluss(1);
+      } else if (modus === 'wellen') {
+        tresore.forEach(function (t) { if (t.blitz > 0) t.blitz -= dt; });
+        var lebendeMonster = kaempfer.filter(function (k) { return k.npc && !k.tot; }).length;
+        if (!lebendeMonster) {
+          wellenPause -= dt;
+          if (wellenPause <= 0) {
+            if (welle >= WELLEN) return abschluss(0);
+            welle++; wellenPause = 4;
+            var anzahl = Math.min(22, 3 + welle * 2), pool = kaempfer.filter(function (k) { return k.npc === 'monster'; });
+            for (var wi = 0; wi < anzahl && wi < pool.length; wi++) {
+              var mo = pool[wi], ziel = freiesFeld(Math.floor(rnd(2, B - 2)), Math.floor(rnd(1, 5)));
+              mo.tot = false; mo.weg = false; mo.hp = mo.maxHp = 70 + welle * 16; mo.x = ziel.x; mo.y = ziel.y; mo.spawnT = 0.45; mo.betaeubt = 0; mo.stoss = null;
+            }
+            sfx.tone(440, 0.15, 'square', 0.06); sfx.tone(330, 0.2, 'square', 0.06, null, 0.15);
+          }
+        }
+      } else if (eroberung) {
+        zonen.forEach(function (z) {
+          var drin = [0, 0];
+          kaempfer.forEach(function (k) { if (!k.tot && Math.hypot(k.x - z.x, k.y - z.y) < ZONE) drin[k.team]++; });
+          if (drin[0] && !drin[1]) z.f = Math.min(100, z.f + dt * 40);
+          if (drin[1] && !drin[0]) z.f = Math.max(-100, z.f - dt * 40);
+          if (z.f >= 100) z.besitzer = 0; else if (z.f <= -100) z.besitzer = 1; else if ((z.besitzer === 0 && z.f <= 0) || (z.besitzer === 1 && z.f >= 0)) z.besitzer = -1;
+          if (z.besitzer >= 0) zonenPunkte[z.besitzer] += dt;
+        });
+        if (zonenPunkte[0] >= 100 || zonenPunkte[1] >= 100) return abschluss(zonenPunkte[0] >= zonenPunkte[1] ? 0 : 1);
+        if (zeit >= dauer) return abschluss(zonenPunkte[0] > zonenPunkte[1] ? 0 : zonenPunkte[0] < zonenPunkte[1] ? 1 : -1);
+      } else if (modus === 'kloppe' || gross) {
+        var kosZiel = gross ? 15 : 10;
+        if (teamKos[0] >= kosZiel) return abschluss(0);
+        if (teamKos[1] >= kosZiel) return abschluss(1);
         if (zeit >= dauer) return abschluss(teamKos[0] > teamKos[1] ? 0 : teamKos[0] < teamKos[1] ? 1 : -1);
       } else {
         var f = klemm((zeit - gas.start) / gas.dauer, 0, 1);
@@ -778,7 +859,43 @@
       var p = kaempfer.filter(function (o) { return o.team === k.team && o !== k && !o.tot; })[0];
       return p && abst(p, k) > 5 * T ? p : null;
     }
+    function npcSchritt(k, dt) {
+      var ki = k.ki; ki.schussT -= dt;
+      var ziel = null, zd = 1e9;
+      kaempfer.forEach(function (o) { if (o.team !== k.team && !o.tot) { var d0 = abst(k, o); if (d0 < zd) { zd = d0; ziel = o; } } });
+      var mx = 0, my = 0;
+      if (k.npc === 'boss') {
+        if (ziel) {
+          var bw = Math.atan2(ziel.y - k.y, ziel.x - k.x);
+          if (zd > 5 * T) { var rw = wegRichtung(k, ziel.x, ziel.y); mx = Math.cos(rw); my = Math.sin(rw); }
+          else { mx = Math.cos(bw + Math.PI / 2) * 0.6; my = Math.sin(bw + Math.PI / 2) * 0.6; }
+          k.blick = bw;
+          var wut = k.hp < k.maxHp * 0.5;
+          if (ki.schussT <= 0 && zd < 8.5 * T && sichtfrei(k.x, k.y, ziel.x, ziel.y)) { ki.schussT = wut ? 0.8 : 1.3; k.munition = 3; angreifen(k, bw, zd); }
+          ki.spezialT -= dt;
+          if (ki.spezialT <= 0) {
+            ki.spezialT = wut ? 4 : 6.5;
+            kaempfer.filter(function (o) { return o.team !== k.team && !o.tot; }).slice(0, 4).forEach(function (o) {
+              projektile.push({ wurf: true, sx: k.x, sy: k.y - 40, tx: o.x, ty: o.y, t: 0, T: 1, owner: k, team: k.team, schaden: 28, flaeche: 1.5 * T, look: 'eimer' });
+            });
+            zahl({ x: k.x, y: k.y - 110, t: -0.3, text: 'WISCHEIMER!', farbe: '#ffd23f' });
+            sfx.tone(200, 0.25, 'square', 0.06, 120);
+          }
+        }
+        return { mx: mx, my: my };
+      }
+      // Kreideklecks: Spieler in der Nähe angreifen, sonst zur Glocke
+      var glocke = tresore[0];
+      var zx = glocke ? glocke.x : W / 2, zy = glocke ? glocke.y : HH / 2, aufGlocke = true;
+      if (ziel && zd < 4.5 * T) { zx = ziel.x; zy = ziel.y; aufGlocke = false; }
+      var dz = Math.hypot(zx - k.x, zy - k.y), reich = k.def.angriff.reichweite * T + (aufGlocke ? glocke.r : ziel.r);
+      var zw = Math.atan2(zy - k.y, zx - k.x); k.blick = zw;
+      if (dz > reich * 0.8) { var rw2 = wegRichtung(k, zx, zy); mx = Math.cos(rw2); my = Math.sin(rw2); }
+      if (dz < reich && ki.schussT <= 0) { ki.schussT = 0.9; k.munition = 3; angreifen(k, zw, dz); }
+      return { mx: mx, my: my };
+    }
     function kiSchritt(k, dt) {
+      if (k.npc) return npcSchritt(k, dt);
       var ki = k.ki, a = k.def.angriff;
       var reich = (a.art === 'nah' ? a.reichweite : a.reichweite) * T;
       ki.denk -= dt; ki.seiteT -= dt;
@@ -828,7 +945,14 @@
             } else wohin = kb;
           } else wohin = { x: W / 2, y: HH / 2 };
         }
-      } else if (modus === 'kloppe' && !z) wohin = { x: W / 2 + Math.sin(zeit * 0.3 + kaempfer.indexOf(k)) * T * 4, y: HH / 2 };
+      } else if (koop && !z) {
+        var bo = kaempfer.filter(function (o) { return o.npc && !o.tot; })[0];
+        wohin = modus === 'boss' && bo ? bo : { x: W / 2 + Math.cos(kaempfer.indexOf(k) * 2) * 2.5 * T, y: HH - 5.5 * T };
+      } else if (eroberung && (!z || d > 4 * T)) {
+        var bz = null, bd = 1e9;
+        zonen.forEach(function (zo) { var wert = Math.hypot(zo.x - k.x, zo.y - k.y) + (zo.besitzer === k.team ? 8 * T : 0); if (wert < bd) { bd = wert; bz = zo; } });
+        if (bz) wohin = { x: bz.x + Math.cos(kaempfer.indexOf(k)) * T * 0.6, y: bz.y + Math.sin(kaempfer.indexOf(k)) * T * 0.6 };
+      } else if ((modus === 'kloppe' || gross) && !z) wohin = { x: W / 2 + Math.sin(zeit * 0.3 + kaempfer.indexOf(k)) * T * 4, y: HH / 2 };
 
       if (modus === 'ball') {
         var torY = k.team === 0 ? T * 0.2 : HH - T * 0.2;
@@ -885,8 +1009,8 @@
         var zielW = Math.atan2(py - k.y, px - k.x) + rnd(-fehler, fehler);
         var mitBall = ball && ball.traeger === k;
         if (k.tricks > 0 && k.trickT <= 0 && d < reich * 1.2 && Math.random() < dt * ks.trick) {
-          var heil = ['ring', 'flasche', 'borschtsch', 'strauss'].indexOf(k.def.trick) >= 0;
-          if (!heil || k.hp < k.maxHp * 0.5) trickAusloesen(k, k.def.trick === 'rueckzug' ? zielW : zielW, d);
+          var heil = ['ring', 'flasche', 'borschtsch', 'strauss', 'schild'].indexOf(k.trickArt) >= 0;
+          if (!heil || k.hp < k.maxHp * 0.5) trickAusloesen(k, zielW, d);
         }
         if (!mitBall && frei2 && d < reich * 0.95 + z.r && ki.schussT <= 0 && k.munition >= 1) {
           ki.schussT = (rnd(0.3, 0.75) + (k.munition < 2 ? 0.4 : 0)) * (rangspiel ? 0.75 : ks.takt);
@@ -1072,7 +1196,7 @@
     function tabelleZeigen(an) {
       tabelleEl.hidden = !an; if (!an) return;
       tabelleEl.innerHTML = '';
-      var teams = {}; kaempfer.forEach(function (k) { (teams[k.team] = teams[k.team] || []).push(k); });
+      var teams = {}; kaempfer.forEach(function (k) { if (k.npc !== 'monster') (teams[k.team] = teams[k.team] || []).push(k); });
       Object.keys(teams).sort(function (a, b) { return (+a === spieler.team ? -1 : 0) - (+b === spieler.team ? -1 : 0); }).forEach(function (t) {
         var block = document.createElement('div'); block.className = 'tblock ' + (+t === spieler.team ? 'eigen' : 'fremd');
         teams[t].sort(function (a, b) { return b.kos - a.kos; }).forEach(function (k) {
@@ -1102,7 +1226,8 @@
       kopf.querySelector('small').textContent = BS.KARTEN_NAMEN[kartenName] + (mo && mo.id !== 'keiner' ? '  ·  ' + mo.icon + ' ' + mo.name : '');
       v.appendChild(kopf);
       var reihe = document.createElement('div'); reihe.className = 'vsreihe';
-      var teams = {}; kaempfer.forEach(function (k) { (teams[k.team] = teams[k.team] || []).push(k); });
+      var teams = {}; kaempfer.forEach(function (k) { if (!(k.npc === 'monster')) (teams[k.team] = teams[k.team] || []).push(k); });
+      if (modus === 'wellen') teams[1] = [{ def: BS.npc('klecks'), name: '8 Wellen Kreidekleckse', team: 1 }];
       var ids = Object.keys(teams).sort(function (a, b) { return (+a === spieler.team ? -1 : 0) - (+b === spieler.team ? -1 : 0); });
       ids.forEach(function (t, i) {
         if (i && team) { var vs = document.createElement('div'); vs.className = 'vs'; vs.textContent = 'VS'; reihe.appendChild(vs); }
@@ -1146,7 +1271,7 @@
         k: kaempfer.map(function (k) {
           return [r1(k.x), r1(k.y), Math.max(0, Math.ceil(k.hp)), k.maxHp, r2(k.blick), k.munition, r2(k.ladeT), Math.round(k.superLadung), k.sterne, k.energie,
             k.tot ? 1 : 0, r2(k.respawn), k.kos, r2(k.gross), r2(k.schild), r2(k.unsichtbar), r2(k.betaeubt), k.bewegt ? 1 : 0,
-            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld, Math.round(k.statSchaden), k.weg ? 1 : 0, k.statTore];
+            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld, Math.round(k.statSchaden), k.weg ? 1 : 0, k.statTore, k.sprung ? r2(Math.min(1, k.sprung.t / k.sprung.T)) : 0, k.maxHp];
         }),
         p: projektile.map(function (p) {
           return p.wurf ? [1, r1(p.sx), r1(p.sy), r1(p.tx), r1(p.ty), r2(p.t), p.T, r1(p.flaeche), p.look]
@@ -1156,7 +1281,7 @@
         e: energie.map(function (o) { return [r1(o.x), r1(o.y)]; }),
         f: flaechen.map(function (o) { return [r1(o.x), r1(o.y), r1(o.r)]; }),
         b: ball ? [r1(ball.x), r1(ball.y), r1(ball.vx), r1(ball.vy), ball.traeger ? kaempfer.indexOf(ball.traeger) : -1] : null, to: tore,
-        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter], tr: tresore.map(function (t) { return Math.round(t.hp); }), kg: teamKopf, pz: pilze.map(function (o) { return [Math.round(o.x), Math.round(o.y)]; }), mt: meteore.map(function (o) { return [Math.round(o.x), Math.round(o.y), r2(o.t)]; }),
+        hz: [r2(huegel[0]), r2(huegel[1]), huegelHalter], tr: tresore.map(function (t) { return Math.round(t.hp); }), kg: teamKopf, wl: welle, zo: zonen.map(function (z) { return [r2(z.f), z.besitzer]; }), zp: [r2(zonenPunkte[0]), r2(zonenPunkte[1])], pz: pilze.map(function (o) { return [Math.round(o.x), Math.round(o.y)]; }), mt: meteore.map(function (o) { return [Math.round(o.x), Math.round(o.y), r2(o.t)]; }),
         g: r1(gas.r), tk: teamKos, sc: sternCountdown === null ? null : r2(sternCountdown), st: sternTeam, ev: ev };
       ev = [];
       netz.senden({ t: 'an_alle', d: d });
@@ -1175,7 +1300,7 @@
         k.munition = a[5]; k.ladeT = a[6]; k.superLadung = a[7]; k.sterne = a[8]; k.energie = a[9]; k.tot = !!a[10]; k.respawn = a[11]; k.kos = a[12];
         k.gross = a[13]; k.schild = a[14]; k.unsichtbar = a[15]; k.betaeubt = a[16]; k.bewegt = !!a[17];
         k.dash = a[18] ? { look: a[18] === 1 ? 'boot' : 'sprint' } : null; k.zuletztAktiv = zeit - a[19] / 10; k.platz = a[20];
-        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26]; k.statSchaden = a[27]; k.weg = !!a[28]; k.statTore = a[29];
+        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26]; k.statSchaden = a[27]; k.weg = !!a[28]; k.statTore = a[29]; k.sprungF = a[30] || 0; if (a[31]) k.maxHp = a[31];
       });
       projektile = d.p.map(function (a) {
         return a[0] ? { wurf: true, sx: a[1], sy: a[2], tx: a[3], ty: a[4], t: a[5], T: a[6], flaeche: a[7], look: a[8] }
@@ -1189,6 +1314,9 @@
       if (d.hz) { huegel = [d.hz[0], d.hz[1]]; huegelHalter = d.hz[2]; }
       if (d.tr) d.tr.forEach(function (hp, i) { if (tresore[i]) { if (hp < tresore[i].hp) tresore[i].blitz = 0.12; tresore[i].hp = hp; } });
       if (d.kg) teamKopf = d.kg;
+      if (d.wl !== undefined) welle = d.wl;
+      if (d.zo) d.zo.forEach(function (a, i) { if (zonen[i]) { zonen[i].f = a[0]; zonen[i].besitzer = a[1]; } });
+      if (d.zp) zonenPunkte = d.zp;
       if (d.pz) pilze = d.pz.map(function (a) { return { x: a[0], y: a[1] }; });
       if (d.mt) meteore = d.mt.map(function (a) { return { x: a[0], y: a[1], t: a[2] }; });
       gas.r = d.g; teamKos = d.tk; sternCountdown = d.sc; sternTeam = d.st;
@@ -1263,7 +1391,7 @@
           return;
         }
         if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
-        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra', 'angriffT', 'trefferT', 'spawnT'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra', 'angriffT', 'trefferT', 'spawnT', 'sprungT', 'teleT'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
         // Munition
         var lt = k.def.laden * k.ladeF * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
         if (k.munition < 3) { k.ladeT += dt; if (k.ladeT >= lt) { k.ladeT = 0; k.munition++; } } else k.ladeT = 0;
@@ -1276,7 +1404,11 @@
         } else k.regenT = 0;
 
         var ox = k.x, oy = k.y;
-        if (k.dash) {
+        if (k.sprung) {
+          var sp = k.sprung; sp.t += dt; var sf = Math.min(1, sp.t / sp.T);
+          k.x = sp.sx + (sp.tx - sp.sx) * sf; k.y = sp.sy + (sp.ty - sp.sy) * sf;
+          if (sf >= 1) { k.sprung = null; fx({ art: 'ring', x: k.x, y: k.y, r: 26, t: 0, d: 0.3, farbe: '#ffb84a' }); }
+        } else if (k.dash) {
           var ds = k.dash; bewegen(k, ds.vx * dt, ds.vy * dt); ds.t -= dt;
           if (ds.schaden) gegnerVon(k).forEach(function (o) {
             if (ds.getroffen.indexOf(o) >= 0 || abst(k, o) > k.r + o.r + 10) return;
@@ -1307,6 +1439,26 @@
           bewegen(k, mx * tempo * dt, my * tempo * dt);
         }
         k.vx = (k.x - ox) / dt; k.vy = (k.y - oy) / dt;
+        if (!k.sprung && !k.npc) {
+          var ftx = Math.floor(k.x / T), fty = Math.floor(k.y / T), fv = fAt(ftx, fty);
+          if (fv === 5 && !(k.sprungT > 0)) {
+            var jw = Math.hypot(k.vx, k.vy) > 20 ? Math.atan2(k.vy, k.vx) : k.blick;
+            var lz = freiesFeld(klemm(Math.floor((k.x + Math.cos(jw) * 4.5 * T) / T), 0, B - 1), klemm(Math.floor((k.y + Math.sin(jw) * 4.5 * T) / T), 0, H - 1));
+            k.sprung = { sx: k.x, sy: k.y, tx: lz.x, ty: lz.y, t: 0, T: 0.6 }; k.sprungT = 1.2;
+            sfx.tone(300, 0.2, 'triangle', 0.06, 900);
+          } else if (fv === 6 && !(k.teleT > 0)) {
+            var px2 = B - 1 - ftx, py2 = H - 1 - fty;
+            if (fAt(px2, py2) === 6 && (px2 !== ftx || py2 !== fty)) {
+              fx({ art: 'ring', x: k.x, y: k.y, r: 30, t: 0, d: 0.35, farbe: '#c46aff' });
+              k.x = (px2 + 0.5) * T; k.y = (py2 + 0.5) * T; k.teleT = 1.5; k.spawnT = 0.3;
+              fx({ art: 'ring', x: k.x, y: k.y, r: 30, t: 0, d: 0.35, farbe: '#c46aff' });
+              sfx.tone(900, 0.15, 'sine', 0.06, 300);
+            }
+          } else if (fv === 7) {
+            k.heilT = (k.heilT || 0) + dt;
+            if (k.heilT >= 0.5) { k.heilT = 0; if (k.hp < k.maxHp) { heilen(k, k.maxHp * 0.06); fx({ art: 'staub', x: k.x, y: k.y - 20, t: 0, d: 0.4, farbe: '#6ef08a' }); } }
+          }
+        }
         k.bewegt = Math.hypot(k.vx, k.vy) > 20; if (k.bewegt) k.lauf += dt;
 
         // Sterne / Energie einsammeln
@@ -1325,14 +1477,14 @@
       // Tresore sind fest
       tresore.forEach(function (t) {
         kaempfer.forEach(function (k) {
-          if (k.tot) return;
+          if (k.tot || k.sprung) return;
           var dd = Math.hypot(k.x - t.x, k.y - t.y), min = t.r + k.r * 0.7;
           if (dd < min && dd > 0.01) { k.x = t.x + (k.x - t.x) / dd * min; k.y = t.y + (k.y - t.y) / dd * min; }
         });
       });
       // Kämpfer nicht ineinander
       for (var i2 = 0; i2 < kaempfer.length; i2++) for (var j = i2 + 1; j < kaempfer.length; j++) {
-        var a = kaempfer[i2], b = kaempfer[j]; if (a.tot || b.tot) continue;
+        var a = kaempfer[i2], b = kaempfer[j]; if (a.tot || b.tot || a.sprung || b.sprung) continue;
         var dd = abst(a, b), min = (a.r + b.r) * 0.8;
         if (dd < min && dd > 0.01) { var px = (a.x - b.x) / dd * (min - dd) / 2, py = (a.y - b.y) / dd * (min - dd) / 2; a.x += px; a.y += py; b.x -= px; b.y -= py; aufloesen(a); aufloesen(b); }
       }
@@ -1476,6 +1628,8 @@
       var ruck = k.angriffT > 0 ? k.angriffT / 0.15 : 0;
       var auf = k.spawnT > 0 ? 1 - k.spawnT / 0.45 : 1;
       var jubel = k.jubel && ende ? Math.abs(Math.sin(performance.now() / 120)) * 16 : 0;
+      var sprF = k.sprung ? Math.min(1, k.sprung.t / k.sprung.T) : k.sprungF || 0;
+      jubel += sprF ? Math.sin(sprF * Math.PI) * 48 : 0;
       ctx.save();
       ctx.translate(k.x - Math.cos(k.blick) * ruck * 4, k.y + 8 - bob - jubel - Math.sin(k.blick) * ruck * 2);
       ctx.rotate(neig + (jubel ? Math.sin(performance.now() / 120) * 0.12 : 0));
@@ -1529,7 +1683,11 @@
         var f = p.t / p.T, x = p.sx + (p.tx - p.sx) * f, y = p.sy + (p.ty - p.sy) * f - Math.sin(f * Math.PI) * 70;
         ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
         ctx.beginPath(); ctx.arc(p.tx, p.ty, p.flaeche, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        if (p.look === 'riesenstempel') {
+        if (p.look === 'eimer') {
+          ctx.save(); ctx.translate(x, y); ctx.rotate(p.t * 8);
+          ctx.fillStyle = '#3a6ad8'; ctx.beginPath(); ctx.moveTo(-12, -12); ctx.lineTo(12, -12); ctx.lineTo(9, 12); ctx.lineTo(-9, 12); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#9ad8ff'; ctx.fillRect(-11, -12, 22, 5); ctx.restore();
+        } else if (p.look === 'riesenstempel') {
           ctx.fillStyle = '#e8343f'; ctx.fillRect(x - 26, y - 18, 52, 36); ctx.fillStyle = '#fff'; ctx.font = '11px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('VETO', x, y + 4);
         } else {
           ctx.fillStyle = p.look === 'natrium' ? '#d8d8e0' : '#9ae8f0';
@@ -1550,6 +1708,7 @@
         case 'spucke': ctx.fillStyle = '#d8f0a0'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(-2, -5, 4, 4); break;
         case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
         case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
+        case 'schraube': ctx.fillStyle = '#c8ccd6'; ctx.fillRect(-8, -3, 16, 6); ctx.fillStyle = '#8a8e98'; ctx.fillRect(4, -6, 5, 12); break;
         case 'plasma': ctx.fillStyle = 'rgba(90,240,255,.35)'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#5af0ff'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-2, -2, 3, 0, Math.PI * 2); ctx.fill(); break;
         case 'grossherz': ctx.restore(); zeichneHerz(x2, y2 - 6, 14); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x2, y2, 18 + Math.sin(zeit * 20) * 3, 0, Math.PI * 2); ctx.stroke(); return;
@@ -1642,8 +1801,29 @@
 
       // Kämpfer nach y sortiert
       kaempfer.slice().sort(function (a, b) { return a.y - b.y; }).forEach(zeichneKaempfer);
+      zonen.forEach(function (z, zi) {
+        var eigen = z.besitzer === spieler.team, fremd = z.besitzer >= 0 && !eigen;
+        var zf = eigen ? 'rgba(63,162,255,' : fremd ? 'rgba(255,77,90,' : 'rgba(255,255,255,';
+        ctx.fillStyle = zf + '.22)'; ctx.beginPath(); ctx.arc(z.x, z.y, ZONE, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = zf + '.9)'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.arc(z.x, z.y, ZONE, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        var anteil = Math.abs(z.f) / 100, fuerMich = (z.f > 0 ? 0 : 1) === spieler.team;
+        ctx.strokeStyle = fuerMich ? '#3fa2ff' : '#ff4d5a'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(z.x, z.y, ZONE + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * anteil); ctx.stroke();
+        ctx.font = '26px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText('ABC'[zi], z.x + 2, z.y + 11); ctx.fillStyle = '#fff'; ctx.fillText('ABC'[zi], z.x, z.y + 9);
+      });
       tresore.forEach(function (t) {
         var meins = t.team === spieler.team;
+        if (t.glocke) {
+          var sw0 = Math.sin(zeit * 3) * (t.blitz > 0 ? 0.3 : 0.06);
+          ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(t.x, t.y + 22, 30, 9, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#6a4a2a'; ctx.fillRect(t.x - 26, t.y + 8, 52, 12); ctx.fillRect(t.x - 4, t.y - 40, 8, 50);
+          ctx.save(); ctx.translate(t.x, t.y - 36); ctx.rotate(sw0);
+          ctx.fillStyle = t.blitz > 0 ? '#fff' : '#ffc828'; ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.lineTo(22, 34); ctx.lineTo(-22, 34); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#c8960a'; ctx.fillRect(-22, 30, 44, 6); ctx.fillStyle = '#8a6a1a'; ctx.beginPath(); ctx.arc(0, 40, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+          ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(t.x - 36, t.y - 58, 72, 10);
+          ctx.fillStyle = '#3fa2ff'; ctx.fillRect(t.x - 34, t.y - 56, 68 * t.hp / t.max, 6);
+          return;
+        }
         ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(t.x, t.y + 22, 34, 10, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = t.blitz > 0 ? '#fff' : '#6a6e78'; ctx.fillRect(t.x - 30, t.y - 34, 60, 56);
         ctx.fillStyle = t.blitz > 0 ? '#fff' : '#8a8e98'; ctx.fillRect(t.x - 26, t.y - 30, 52, 48);
@@ -1828,7 +2008,18 @@
         h = '<div class="punkte"><span class="blau">★ ' + teamKopf[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + teamKopf[1 - spieler.team] + ' ★</span></div><div class="ansage">Dein Kopfgeld: ' + spieler.kopfgeld + ' ★</div>';
       } else if (training) {
         h = '<div class="punkte"><span>🎯 Trainingsplatz</span></div><div class="ansage">Probier alles aus – ✕ oben rechts beendet das Training.</div>';
-      } else if (modus === 'kloppe') {
+      } else if (modus === 'boss') {
+        var bs = kaempfer.filter(function (k) { return k.npc === 'boss'; })[0];
+        var bp = bs ? Math.max(0, Math.ceil(bs.hp / bs.maxHp * 100)) : 0;
+        h = '<div class="punkte"><span>🤖 Robo-Hausmeister</span><span class="uhr">' + uhr + '</span></div><div class="bossbalken"><i style="width:' + bp + '%"></i><span>' + bp + ' %</span></div>';
+      } else if (modus === 'wellen') {
+        var gl = tresore[0], ml = kaempfer.filter(function (k) { return k.npc && !k.tot; }).length;
+        h = '<div class="punkte"><span class="blau">🔔 ' + Math.ceil(gl.hp / gl.max * 100) + ' %</span><span>Welle ' + Math.max(1, welle) + '/' + WELLEN + '</span></div>';
+        h += ml ? '<div class="ansage">' + ml + (ml === 1 ? ' Kreideklecks' : ' Kreidekleckse') + ' übrig</div>' : (welle < WELLEN ? '<div class="ansage gross">Welle ' + (welle + 1) + ' kommt!</div>' : '');
+      } else if (eroberung) {
+        var zb = zonen.map(function (z, i) { return '<b class="' + (z.besitzer === spieler.team ? 'blau' : z.besitzer >= 0 ? 'rotx' : '') + '">' + 'ABC'[i] + '</b>'; }).join(' ');
+        h = '<div class="punkte"><span class="blau">🚩 ' + Math.floor(zonenPunkte[spieler.team]) + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + Math.floor(zonenPunkte[1 - spieler.team]) + ' 🚩</span></div><div class="ansage zonenzeile">' + zb + '</div>';
+      } else if (modus === 'kloppe' || gross) {
         h = '<div class="punkte"><span class="blau">✊ ' + teamKos[spieler.team] + '</span><span class="uhr">' + uhr + '</span><span class="rotx">' + teamKos[1 - spieler.team] + ' ✊</span></div>';
       } else {
         var lebend = kaempfer.filter(function (k) { return !k.tot; }).length;
@@ -1858,14 +2049,15 @@
       }
       // Tabelle für den Ergebnisbildschirm und bester Spieler (MVP) aus dem Gewinnerteam
       var punkte = function (k) { return k.kos * 3 + k.statSchaden / 250 + k.statTore * 5 + (k.platz === 1 ? 5 : 0); };
-      var kandidaten = kaempfer.filter(function (k) { return royaleArt ? k.platz === 1 : sieger === -1 || k.team === sieger; });
-      if (!kandidaten.length) kandidaten = kaempfer;
+      var spielende = kaempfer.filter(function (k) { return !k.npc; });
+      var kandidaten = spielende.filter(function (k) { return royaleArt ? k.platz === 1 : sieger === -1 || k.team === sieger; });
+      if (!kandidaten.length) kandidaten = spielende;
       var mvp = kandidaten.reduce(function (a, b) { return punkte(b) > punkte(a) ? b : a; });
-      var tabelle = kaempfer.map(function (k) {
+      var tabelle = kaempfer.filter(function (k) { return k.npc !== 'monster'; }).map(function (k) {
         return { n: k.name || k.def.name, kid: k.def.id, skin: k.skin ? k.skin.id : '', team: k.team, kos: k.kos, schaden: Math.round(k.statSchaden), tore: k.statTore, mvp: k === mvp, mensch: k.mensch || 0, weg: !!k.weg };
       });
       var fuerAlt = fuer;
-      fuer = function (k) { var st = fuerAlt(k); st.tabelle = tabelle; st.ich = kaempfer.indexOf(k); st.meinTeam = k.team; st.mvp = k === mvp; return st; };
+      fuer = function (k) { var st = fuerAlt(k); st.tabelle = tabelle; st.ich = kaempfer.filter(function (o) { return o.npc !== 'monster'; }).indexOf(k); st.meinTeam = k.team; st.mvp = k === mvp; return st; };
       if (host) {
         var r = {};
         kaempfer.forEach(function (k) { if (k.mensch && k !== spieler) r[k.mensch] = fuer(k); });

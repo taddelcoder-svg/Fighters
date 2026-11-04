@@ -417,6 +417,23 @@
     sauer: { 7: '..HSHHSSSSHHSH..', 8: '..HSEESSSSEESH..', 11: '.HHSSSOOOOSSSHH.' }
   };
 
+  // Robo-Hausmeister (Boss) und Kreideklecks (Monster) – eigene Figuren für Bravo Stars
+  function breite(zeilen, b) { return zeilen.map(function (z) { while (z.length < b) z += '.'; return z.slice(0, b); }); }
+  var ROBO = breite([
+    '....YYYYYYYY....', '...YYYYYYYYYY...', '..yyyyyyyyyyyy..', '...GGGGGGGGGG...', '..GGggggggggGG..',
+    '..GgRRggggRRgG..', '..GgRrggggRrgG..', '..GggggggggggG..', '..GgKKKKKKKKgG..', '..GgKWKWKWKKgG..',
+    '..GGggggggggGG..', '....GGGGGGGG....', '.BBBBBBBBBBBBBB.', 'BBbBBOOOOOOBBbBB', 'BBbBBOooooOBBbBB',
+    'GGbBBOOOOOOBBbGG', 'GG.BBBBBBBBBB.GG', 'GG.BBBBBBBBBB.GG', '...GGGG..GGGG...', '...GGgG..GgGG...',
+    '...GGGG..GGGG...', '..KKKKK..KKKKK..', '..KKKKK..KKKKK..'
+  ], 16);
+  var ROBO_PAL = { Y: '#ffd23f', y: '#c8960a', G: '#8a8e98', g: '#a8acb6', R: '#ff3a3a', r: '#ffd0d0', K: '#2a2a32', W: '#e8e8e8',
+    B: '#3a6ad8', b: '#2a4aa8', O: '#ffb800', o: '#fff0a0' };
+  var KLECKS = breite([
+    '...WWWWWW...', '..WWWWWWWW..', '.WWWWWWWWWW.', '.WWKWWWWKWW.', 'WWWKWWWWKWWW',
+    'WWWWWWWWWWWW', 'WWWWMMMMWWWW', 'WWWWWWWWWWWW', '.WWwWWWWwWW.', '..ww.ww.ww..'
+  ], 12);
+  var KLECKS_PAL = { W: '#e8eef8', w: '#b8c0d0', K: '#1c1430', M: '#8a2a4a' };
+
   function withMood(base, moods, mood) {
     var o = moods[mood] || {};
     return base.map(function (row, i) { return o[i] || row; });
@@ -447,6 +464,8 @@
       mood = mood || 'neutral';
       return Pixel.sprite('julian-' + mood, withMood(JULIAN, JULIAN_MOODS, mood), JULIAN_PAL);
     },
+    robo: function () { return Pixel.sprite('robo', ROBO, ROBO_PAL); },
+    klecks: function () { return Pixel.sprite('klecks', KLECKS, KLECKS_PAL); },
     damon: function () { return Pixel.sprite('damon', DAMON, DAMON_PAL); },
     moritz: function () { return Pixel.sprite('moritz-physiker', MORITZ_PHYSIKER, MORITZ_PHYSIKER_PAL); },
     doppeldate: function () {

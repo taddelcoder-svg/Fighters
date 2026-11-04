@@ -426,3 +426,50 @@ button { font: inherit; color: inherit; }
 .suchkasten b { font-family: var(--dick); font-weight: 400; font-size: 26px; text-shadow: var(--kontur); }
 .suchkasten small { font-size: 16px; opacity: .9; }
 .kreisel { width: 56px; height: 56px; border-radius: 50%; border: 7px solid rgba(255, 255, 255, .2); border-top-color: var(--gelb); animation: drehen .9s linear infinite; }
+
+/* ---------- Trick-/Talentwahl ---------- */
+.auswahl { margin-top: 10px; }
+.auswahl > b { font-family: var(--dick); font-weight: 400; font-size: 17px; color: var(--gelb); text-shadow: 0 2px 0 var(--rand); }
+.auswahl.zu { opacity: .55; }
+.auswahlreihe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.wahlknopf { cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; color: #fff; border: 3px solid var(--rand); border-radius: 12px;
+  background: linear-gradient(#3a2480, #2a1868); box-shadow: 0 3px 0 var(--rand); }
+.wahlknopf strong { font-family: var(--dick); font-weight: 400; font-size: 16px; text-shadow: 0 2px 0 var(--rand); }
+.wahlknopf small { font-size: 13px; opacity: .85; }
+.wahlknopf.an { background: linear-gradient(#2aa84a, #1a6a2a); outline: 3px solid var(--gelb); }
+@media (max-width: 560px) { .auswahlreihe { grid-template-columns: 1fr; } }
+
+/* ---------- Profil & Freunde ---------- */
+.profil .emblem { overflow: hidden; border-width: 3px; border-style: solid; }
+.profil .emblem canvas { height: 34px; width: auto; }
+.profilkopf { margin-top: 12px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 16px; border: 3px solid var(--rand); border-radius: 16px;
+  background: linear-gradient(100deg, #4a2f9e, #2a1868); box-shadow: 0 4px 0 var(--rand); }
+.avatar { width: 110px; height: 110px; border-radius: 22px; border: 5px solid; background: radial-gradient(circle at 50% 40%, #6a4ac8, #1a0e40); display: grid; place-items: end center; overflow: hidden; }
+.avatar canvas { height: 96px; width: auto; }
+.ptext { display: flex; flex-direction: column; gap: 6px; flex: 1 1 220px; }
+.ptext input { font: inherit; font-size: 20px; padding: 8px 12px; border: 3px solid var(--rand); border-radius: 12px; background: #fff; color: #1c1040; max-width: 320px; user-select: text; -webkit-user-select: text; }
+.ptext small { opacity: .85; font-size: 15px; }
+.avatare { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.avatarwahl { cursor: pointer; height: 70px; display: grid; place-items: end center; border: 3px solid var(--rand); border-radius: 14px; background: linear-gradient(#4a2f9e, #2a1868); overflow: hidden; }
+.avatarwahl canvas { height: 60px; width: auto; }
+.avatarwahl.an { outline: 4px solid var(--gelb); outline-offset: 1px; }
+.statgitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.statkarte { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px; border: 3px solid var(--rand); border-radius: 14px; background: linear-gradient(#3a2480, #2a1868); box-shadow: 0 3px 0 var(--rand); text-align: center; }
+.statkarte .si { font-size: 24px; }
+.statkarte b { font-family: var(--dick); font-weight: 400; font-size: 22px; text-shadow: var(--kontur); }
+.statkarte small { font-size: 13px; opacity: .85; }
+.onlinepunkt { width: 14px; height: 14px; border-radius: 50%; background: #666; border: 2px solid var(--rand); flex: none; }
+.onlinepunkt.an { background: var(--gruen); box-shadow: 0 0 8px var(--gruen); }
+.knopf.klein { font-size: 14px; padding: 4px 10px 6px; }
+.einladung { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 40; width: min(420px, 92vw); }
+.einladungkasten { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 14px; border: 3px solid var(--rand); border-radius: 16px;
+  background: linear-gradient(#2a7ad8, #4a2f9e); box-shadow: 0 6px 0 var(--rand); animation: vonoben .35s ease-out; }
+@keyframes vonoben { from { transform: translateY(-40px); opacity: 0; } }
+.einladungkasten b { font-family: var(--dick); font-weight: 400; font-size: 22px; text-shadow: var(--kontur); }
+.einladungkasten .knoepfe { margin-top: 4px; }
+
+/* ---------- Boss & Zonen im Spiel ---------- */
+.bossbalken { position: relative; width: min(460px, 86vw); height: 26px; border: 3px solid var(--rand); border-radius: 13px; background: rgba(20, 10, 50, .8); overflow: hidden; }
+.bossbalken i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#ff7a7a, #c8203a); }
+.bossbalken span { position: relative; display: block; text-align: center; font-family: var(--dick); font-size: 15px; line-height: 20px; text-shadow: var(--kontur); }
+.zonenzeile b { font-weight: 400; margin: 0 6px; font-size: 22px; }

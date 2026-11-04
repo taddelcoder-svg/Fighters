@@ -85,7 +85,10 @@ server.on('upgrade', (req, sock) => {
 let naechsteId = 1;
 const clients = new Set();
 const raeume = new Map();
-const MAX_SPIELER = 8;
+const MAX_SPIELER = 10;
+const KOOP = ['boss', 'wellen'];
+function maxFuer(modus) { return modus === 'grosskeile' ? 10 : modus === 'royale' || modus === 'duo' ? 8 : 6; }
+function wahlVon(v) { return v === 1 ? 1 : 0; }
 
 function neuerClient(sock) {
   const c = { id: naechsteId++, sock, name: 'Spieler', kaempfer: 'matteo', stufe: 1, raum: null, lebt: true, offen: true };
@@ -122,13 +125,14 @@ function verlassen(c) {
 }
 function starte(r) {
   r.laeuft = true;
-  const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung, team: i % 2 }));
+  const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung,
+    trickWahl: x.trickWahl || 0, talentWahl: x.talentWahl || 0, team: KOOP.indexOf(r.modus) >= 0 ? 0 : i % 2 }));
   r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: r.host.id, regeln: r.regeln }));
   lobby(r);
 }
 
 /* ---------- Online-Suche: Warteschlange pro Modus, nur echte Spieler ---------- */
-const SUCH_MODI = ['sterne', 'kloppe', 'ball', 'huegel', 'tresor', 'kopfgeld', 'royale', 'duo'];
+const SUCH_MODI = ['sterne', 'kloppe', 'ball', 'huegel', 'tresor', 'kopfgeld', 'royale', 'duo', 'grosskeile', 'eroberung', 'boss', 'wellen'];
 const schlangen = new Map();   // modus -> [{ c, seit }]
 function ausSchlange(c) {
   if (!c.sucht) return;
@@ -140,7 +144,7 @@ setInterval(() => {
   const jetzt = Date.now();
   schlangen.forEach((l, modus) => {
     l = l.filter((e) => e.c.offen && e.c.sucht === modus);
-    const max = modus === 'royale' || modus === 'duo' ? 8 : 6;
+    const max = maxFuer(modus);
     // Start, wenn der Modus voll ist oder seit dem zweiten Spieler 6 Sekunden vergangen sind
     while (l.length >= 2 && (l.length >= max || jetzt - l[1].seit >= 6000)) {
       const gruppe = l.splice(0, max).map((e) => e.c);
@@ -167,7 +171,7 @@ function nachricht(c, o) {
   switch (o.t) {
     case 'erstellen': {
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
       const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false, regeln: { mod: 'heute', zeit: 1 } };
       raeume.set(neu.code, neu); c.raum = neu;
       senden(c, { t: 'du', id: c.id });
@@ -180,17 +184,44 @@ function nachricht(c, o) {
       if (ziel.laeuft) return senden(c, { t: 'fehler', text: 'Dort läuft gerade eine Runde – gleich nochmal versuchen.' });
       if (ziel.spieler.length >= MAX_SPIELER) return senden(c, { t: 'fehler', text: 'Der Raum ist voll.' });
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
       ziel.spieler.push(c); c.raum = ziel;
       senden(c, { t: 'du', id: c.id });
       lobby(ziel);
       break;
     }
     case 'verlassen': verlassen(c); break;
+    case 'hallo': c.name = sauber(o.name, 16); c.angemeldet = true; break;
+    case 'status': {
+      const namen = Array.isArray(o.namen) ? o.namen.slice(0, 50).map((n) => sauber(n, 16).toLowerCase()) : [];
+      const liste = namen.map((n) => {
+        let wer = null; clients.forEach((x) => { if (x.angemeldet && x.offen && x.name.toLowerCase() === n) wer = x; });
+        if (!wer) return { name: n, online: false };
+        const wo = wer.raum ? (wer.raum.laeuft ? 'spielt gerade' : 'im Raum ' + (wer.raum.zufall ? '' : wer.raum.code)) : wer.sucht ? 'sucht ein Spiel' : 'im Menü';
+        return { name: wer.name, online: true, wo };
+      });
+      senden(c, { t: 'freundstatus', liste });
+      break;
+    }
+    case 'einladen': {
+      const ziel = sauber(o.an, 16).toLowerCase();
+      const empf = []; clients.forEach((x) => { if (x !== c && x.angemeldet && x.offen && x.name.toLowerCase() === ziel) empf.push(x); });
+      if (!empf.length) return senden(c, { t: 'fehler', text: 'Dein Freund ist gerade nicht online.' });
+      let raum = c.raum;
+      if (!raum) {   // Wer einlädt, bekommt automatisch einen Raum
+        ausSchlange(c);
+        raum = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false, regeln: { mod: 'heute', zeit: 1 } };
+        raeume.set(raum.code, raum); c.raum = raum;
+        senden(c, { t: 'du', id: c.id }); lobby(raum);
+      }
+      empf.forEach((x) => senden(x, { t: 'einladung', von: c.name, code: raum.code, modus: raum.modus }));
+      senden(c, { t: 'eingeladen', an: empf[0].name });
+      break;
+    }
     case 'suchen': {
       if (SUCH_MODI.indexOf(o.modus) < 0) return senden(c, { t: 'fehler', text: 'Diesen Modus gibt es online nicht.' });
       verlassen(c); ausSchlange(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
       c.sucht = o.modus;
       if (!schlangen.has(o.modus)) schlangen.set(o.modus, []);
       schlangen.get(o.modus).push({ c, seit: Date.now() });
@@ -198,7 +229,7 @@ function nachricht(c, o) {
       break;
     }
     case 'suche_stopp': ausSchlange(c); senden(c, { t: 'suche_aus' }); break;
-    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); lobby(r); } break;
+    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
     case 'regeln': if (r && r.host === c && !r.laeuft) {
       const z = +o.zeit; r.regeln = { mod: sauber(o.mod, 16), zeit: z === 0.7 || z === 1.4 ? z : 1 }; lobby(r);
@@ -207,7 +238,7 @@ function nachricht(c, o) {
       if (!r || r.host !== c || r.laeuft) return;
       if (r.modus === 'training') return senden(c, { t: 'fehler', text: 'Der Trainingsplatz geht nur allein.' });
       if (r.spieler.length < 2) return senden(c, { t: 'fehler', text: 'Online spielen nur echte Leute – warte, bis mindestens ein Freund im Raum ist.' });
-      if (r.modus !== 'royale' && r.modus !== 'duo' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
+      if (r.spieler.length > maxFuer(r.modus)) return senden(c, { t: 'fehler', text: 'In diesem Modus passen höchstens ' + maxFuer(r.modus) + ' Leute rein.' });
       starte(r);
       break;
     }

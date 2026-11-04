@@ -148,6 +148,38 @@
       talent: { superF: 1.2 }, talentName: 'Goldader', talentText: 'Super lädt 20 % schneller.' }
   };
   KAEMPFER.forEach(function (k) { var e = EXTRAS[k.id]; for (var f in e) k[f] = e[f]; });
+  // Zweite Wahl: Trick 2 und Talent 2 (umschaltbar im Kämpfer-Bildschirm)
+  var ZWEITE = {
+    matteo: { t: ['schild', 'Immunität', '1,5 Sekunden unverwundbar.'], a: [{ hp: 1.12 }, 'Leibwache', '+12 % Leben.'] },
+    timo: { t: ['rueckzug', 'Rückwärtsgang', 'Springt 3 Felder zurück.'], a: [{ tempo: 1.08 }, 'Rückenwind', 'Läuft 8 % schneller.'] },
+    leon: { t: ['spickzettel', 'Langer Blick', 'Der nächste Treffer zählt doppelt.'], a: [{ laden: 0.88 }, 'Schnellhals', 'Lädt 12 % schneller nach.'] },
+    mo: { t: ['rauch', 'Staubwolke', 'Wolke um ihn, die Gegner 3 Sekunden bremst.'], a: [{ superF: 1.2 }, 'Kleiner Akku', 'Super lädt 20 % schneller.'] },
+    omar: { t: ['klopapier', 'Kamelgalopp', '3 Sekunden lang 30 % schneller.'], a: [{ schaden: 1.1 }, 'Scharfe Spucke', '+10 % Schaden.'] },
+    felix: { t: ['magnetfeld', 'Bauchklatscher', 'Schleudert alle Gegner in der Nähe weg.'], a: [{ tempo: 1.1 }, 'Hungerlauf', 'Läuft 10 % schneller.'] },
+    julian: { t: ['ring', 'Heiltrank', 'Heilt 35 % Leben.'], a: [{ schaden: 1.1 }, 'Konzentrat', '+10 % Schaden.'] },
+    damon: { t: ['nachladen', 'Zugabe!', 'Sofort volle Munition.'], a: [{ regenTempo: 2 }, 'Lärmschutz', 'Heilt sich doppelt so schnell.'] },
+    moritz: { t: ['sprung', 'Teleport', 'Springt 3 Felder nach vorn.'], a: [{ superF: 1.2 }, 'Teilchenbeschleuniger', 'Super lädt 20 % schneller.'] },
+    ecki: { t: ['flasche', 'Kamillentee', 'Heilt 25 % und macht 2 Sekunden schneller.'], a: [{ schaden: 1.1 }, 'Wut im Bauch', '+10 % Schaden.'] },
+    philipp: { t: ['schild', 'Krankmeldung', '1,5 Sekunden unverwundbar.'], a: [{ hp: 1.12 }, 'Ausgeschlafen', '+12 % Leben.'] }
+  };
+  KAEMPFER.forEach(function (k) {
+    var z = ZWEITE[k.id];
+    k.tricks = [{ art: k.trick, name: k.trickName, text: k.trickText }];
+    k.talente = [{ mod: k.talent, name: k.talentName, text: k.talentText }];
+    if (z) { k.tricks.push({ art: z.t[0], name: z.t[1], text: z.t[2] }); k.talente.push({ mod: z.a[0], name: z.a[1], text: z.a[2] }); }
+  });
+
+  // Gegner ohne Spieler: Boss und Kreidekleckse (nur für Boss-Kampf und Wellen)
+  var NPC = [
+    { id: 'robo', name: 'Robo-Hausmeister', npc: 'boss', farbe: '#8a8e98', skala: 3.2, radius: 30, titel: 'Boss', rolle: 'Boss',
+      sprite: function () { return Sprites.robo(); }, hp: 4200, tempo: 95, laden: 0.9, superKosten: 99999,
+      angriff: { art: 'schuss', anzahl: 5, streuung: 0.9, tempo: 420, reichweite: 8, schaden: 14, radius: 10, look: 'schraube' },
+      superArt: 'keiner', superReichweite: 0, tricks: [{ art: '', name: '', text: '' }], talente: [{ mod: {}, name: '', text: '' }], talent: {} },
+    { id: 'klecks', name: 'Kreideklecks', npc: 'monster', farbe: '#e8eef8', skala: 2.2, radius: 13, titel: 'Monster', rolle: 'Monster',
+      sprite: function () { return Sprites.klecks(); }, hp: 90, tempo: 105, laden: 0.8, superKosten: 99999,
+      angriff: { art: 'nah', reichweite: 1.3, breite: 1.3, schaden: 14, look: 'biss' },
+      superArt: 'keiner', superReichweite: 0, tricks: [{ art: '', name: '', text: '' }], talente: [{ mod: {}, name: '', text: '' }], talent: {} }
+  ];
 
   // Seltenheiten (nur Anzeige: Rahmenfarbe und Etikett)
   var SELTENHEITEN = [
@@ -182,6 +214,14 @@
       text: '3 gegen 3: Jeder K.o. bringt so viele Sterne, wie Kopfgeld auf dem Gegner liegt. Wer viele K.o.s schafft, wird selbst wertvoller.' },
     { id: 'duo', farbe: '#2aa898', name: 'Duo-Royale', icon: '👥', team: false,
       text: 'Vier 2er-Teams auf dem Pausenhof: du und ein Partner gegen den Rest. Das letzte Duo, das noch steht, gewinnt.' },
+    { id: 'boss', farbe: '#7a7e88', name: 'Boss-Kampf', icon: '🤖', team: true, koop: true,
+      text: 'Gemeinsam gegen den Robo-Hausmeister: Er schießt Schrauben und wirft Wischeimer. Besiegt ihn in 3 Minuten.' },
+    { id: 'wellen', farbe: '#2a9ab8', name: 'Glocken-Wache', icon: '🔔', team: true, koop: true,
+      text: 'Kreidekleckse greifen die Schulglocke an. Haltet 8 Wellen durch, ohne dass die Glocke kaputtgeht.' },
+    { id: 'grosskeile', farbe: '#e8603a', name: 'Große Keile', icon: '🔥', team: true, gross: true,
+      text: '5 gegen 5: Das erste Team mit 15 K.o.s gewinnt. Online bis zu 10 Leute.' },
+    { id: 'eroberung', farbe: '#3aa86a', name: 'Eroberung', icon: '🚩', team: true,
+      text: '3 gegen 3: Drei Zonen erobern und halten. Jede eigene Zone bringt Punkte – wer zuerst 100 hat, gewinnt.' },
     { id: 'training', farbe: '#6a6a7a', name: 'Trainingsplatz', icon: '🎯', team: true, training: true,
       text: 'Ohne Gegner, ohne Pokale: Probier Angriff, Super, Trick und Ultra an Übungspuppen aus.' }
   ];
@@ -203,7 +243,7 @@
         '.bbb...#.....#...bbb.',
         '..b...............b..',
         '......####.####......',
-        '...ww...........ww...',
+        '...ww....J.J....ww...',
         '...ww..bb...bb..ww...',
         '........bb.bb........',
         '..##.............##..',
@@ -256,7 +296,7 @@
     haelfte: [
       '......bb.....bb......',
       '.....................',
-      '..##.....###.....##..',
+      '..##.....FFF.....##..',
       '..##.............##..',
       '.......b.....b.......',
       'bb....bbb...bbb....bb',
@@ -279,7 +319,7 @@
       '.....................',
       '###...##.....##...###',
       '.....................',
-      '.....b....w....b.....',
+      '.....b....H....b.....',
       '....bbb...w...bbb....',
       '.....b.........b.....',
       '##.......###.......##',
@@ -298,7 +338,7 @@
     haelfte: [
       '.........bbb.........',
       '.....................',
-      '.###.###.....###.###.',
+      '.###.###..O..###.###.',
       '.....................',
       'bb.......#.#.......bb',
       'bb..ww...#.#...ww..bb',
@@ -356,7 +396,7 @@
     haelfte: [
       '..bb.............bb..',
       '..bb.............bb..',
-      '.....##.......##.....',
+      '.....FF.......FF.....',
       '.....##.......##.....',
       '.....................',
       '##..bb...#.#...bb..##',
@@ -386,6 +426,83 @@
       '.....................',
       '....##...b.b...##....',
       '.........b.b.........'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.robohalle = {
+    name: 'Robo-Werkstatt',
+    haelfte: [
+      '.....................',
+      '..FF.............FF..',
+      '..F.......H.......F..',
+      '.....................',
+      '....bb.........bb....',
+      '....bb...J.J...bb....',
+      '.....................',
+      '..##.............##..',
+      '..#...............#..',
+      '......F.......F......',
+      '.....................',
+      '...H.............H...',
+      '.....................'
+    ],
+    mitte: '.......bb...bb.......'
+  };
+  KARTEN.glockenhof = {
+    name: 'Glockenhof',
+    haelfte: [
+      '.....................',
+      '..bb.....###.....bb..',
+      '..bb.............bb..',
+      '.....................',
+      '.##...F.......F...##.',
+      '.....................',
+      '....bb....H....bb....',
+      '....bb.........bb....',
+      '.....................',
+      '..J.....F...F.....J..',
+      '.....................',
+      '.##...............##.',
+      '.....................'
+    ],
+    mitte: 'bb.......bbb.......bb'
+  };
+  KARTEN.grosshalle = {
+    name: 'Große Halle',
+    haelfte: [
+      '.b.................b.',
+      '.b..O..........O...b.',
+      '.....................',
+      '###....FFF.FFF....###',
+      '.....................',
+      '..bb.....J.J.....bb..',
+      '..bb.............bb..',
+      '.......##...##.......',
+      '.....................',
+      '.H...ww.......ww...H.',
+      '.....ww.......ww.....',
+      '.....................',
+      '..##....bb.bb....##..',
+      '..##....bb.bb....##..',
+      '.....................'
+    ],
+    mitte: '.....................'
+  };
+  KARTEN.zonenhof = {
+    name: 'Zonenhof',
+    haelfte: [
+      '..b......bbb......b..',
+      '..b...............b..',
+      '.....##.......##.....',
+      '.....##...H...##.....',
+      '.....................',
+      'bb.......FFF.......bb',
+      'bb.................bb',
+      '....J...........J....',
+      '...##...#...#...##...',
+      '.....................',
+      '..bb.............bb..',
+      '.....................'
     ],
     mitte: '.....................'
   };
@@ -477,7 +594,8 @@
   BS.KARTEN_FUER = {
     sterne: ['schulhof', 'pausenhalle', 'dach'], kloppe: ['turnhalle', 'flur', 'pausenhalle'], kopfgeld: ['flur', 'turnhalle', 'dach'],
     ball: ['sportplatz', 'schulgarten'], huegel: ['aula', 'dach', 'pausenhalle'], tresor: ['keller', 'bibliothek'],
-    royale: ['pausenhof', 'sportfest'], duo: ['sportfest', 'pausenhof'], training: ['training']
+    royale: ['pausenhof', 'sportfest'], duo: ['sportfest', 'pausenhof'], training: ['training'],
+    boss: ['robohalle'], wellen: ['glockenhof'], grosskeile: ['grosshalle', 'pausenhalle'], eroberung: ['zonenhof']
   };
   BS.KARTEN_NAMEN = { pausenhof: ROYALE.name, sportfest: SPORTFEST.name };
   for (var kn in KARTEN) BS.KARTEN_NAMEN[kn] = KARTEN[kn].name;
@@ -488,5 +606,10 @@
     return teamKarte(KARTEN[name] || KARTEN.schulhof);
   };
   BS.AUSRUESTUNG_AB = AUSRUESTUNG_AB; BS.ULTRA_AB = ULTRA_AB;
-  BS.kaempfer = function (id) { for (var i = 0; i < KAEMPFER.length; i++) if (KAEMPFER[i].id === id) return KAEMPFER[i]; return KAEMPFER[0]; };
+  BS.kaempfer = function (id) {
+    for (var i = 0; i < KAEMPFER.length; i++) if (KAEMPFER[i].id === id) return KAEMPFER[i];
+    for (var j = 0; j < NPC.length; j++) if (NPC[j].id === id) return NPC[j];
+    return KAEMPFER[0];
+  };
+  BS.npc = function (id) { for (var j = 0; j < NPC.length; j++) if (NPC[j].id === id) return NPC[j]; return null; };
 })();

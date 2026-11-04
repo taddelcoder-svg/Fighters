@@ -27,6 +27,10 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 | Kopfgeld | 3 gegen 3, K.o.s bringen so viele Sterne, wie Kopfgeld auf dem Gegner liegt |
 | Duo-Royale | Vier 2er-Teams, das letzte Duo gewinnt |
 | Trainingsplatz | Übungspuppen, keine Pokale |
+| Boss-Kampf | Koop gegen den Robo-Hausmeister (3 Minuten) |
+| Glocken-Wache | Koop: die Schulglocke 8 Wellen lang gegen Kreidekleckse verteidigen |
+| Große Keile | 5 gegen 5, das erste Team mit 15 K.o.s gewinnt (online bis 10 Leute) |
+| Eroberung | 3 gegen 3, drei Zonen halten, wer zuerst 100 Punkte hat, gewinnt |
 | Pausenhof-Royale | Jeder gegen jeden (8), Kisten knacken für Energie, Kreidestaub zieht sich zusammen |
 | Klassenkeile | 3 gegen 3, das erste Team mit 10 K.o.s gewinnt |
 
@@ -36,6 +40,16 @@ Startbildschirm mit Kämpfer auf der Bühne, Profil mit Rang, Münzen, Schnellkn
 Aufgaben, Pokal-Weg, Modus-Auswahl (Kartenvorschau, Modifikator des Tages) und Freunde.
 Jede Runde beginnt mit einem VS-Intro, zeigt einen Kill-Feed, eine Punktetabelle (Tab / 📋) und am Ende den besten Spieler (MVP).
 Modifikatoren: Super-Turbo, Heilpilze, Meteoritenschauer, Energydrink.
+
+## Karten-Extras
+
+`J` Sprungpad (springt 4–5 Felder über alles), `O` Teleporter (bringt zum gespiegelten Gegenstück), `H` Heilstation, `F` Fenster (geht kaputt).
+
+## Profil & Freunde
+
+Profilbild, Statistik (Runden, Siege, MVP, K.o.s, Schaden, Lieblingskämpfer) und Freundesliste nach Namen:
+Wer online ist, sieht man mit Status; „Einladen“ schickt eine Einladung in den eigenen Raum.
+Jeder Kämpfer hat zwei Tricks und zwei Talente zur Auswahl.
 
 ## Fortschritt
 
