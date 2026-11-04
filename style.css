@@ -381,3 +381,48 @@ button { font: inherit; color: inherit; }
   .logo { font-size: 30px; } .figur canvas { height: 28vh; } .namensschild { margin-top: 10px; }
 }
 .event { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+
+/* ---------- Seltenheiten ---------- */
+.karte.mitselten { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), inset 0 -5px 0 rgba(0, 0, 0, .25), 0 4px 0 var(--rand), 0 0 0 3px var(--selten); }
+.karte .seltenheit { font-family: var(--dick); font-size: 12px; padding: 1px 8px 2px; border-radius: 8px; background: var(--selten); border: 2px solid var(--rand); text-shadow: 0 1px 0 var(--rand); }
+.seltenchip { display: inline-block; font-family: var(--dick); font-size: 14px; padding: 1px 10px 2px; border-radius: 8px; border: 2px solid var(--rand); color: #fff; text-shadow: 0 1px 0 var(--rand); }
+
+/* ---------- Schuljahr-Pass ---------- */
+.passkopf { margin-top: 12px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 14px 16px; border: 3px solid var(--rand); border-radius: 16px;
+  background: linear-gradient(100deg, #2a7ad8, #5a2fb0); box-shadow: 0 4px 0 var(--rand); }
+.passkopf .pk1 { flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px; }
+.passkopf .pk1 b { font-family: var(--dick); font-weight: 400; font-size: 24px; text-shadow: var(--kontur); }
+.passkopf .pk1 small { font-size: 15px; opacity: .9; }
+.passkopf .pk2 { display: grid; grid-template-columns: auto 180px; grid-template-rows: auto auto; gap: 2px 10px; align-items: center; }
+.passkopf .pk2 .stufenkreis { grid-row: 1 / span 2; }
+.passkopf .pbar { display: block; height: 14px; border-radius: 7px; background: #12082a; overflow: hidden; border: 2px solid var(--rand); }
+.passkopf .pbar b { display: block; height: 100%; background: linear-gradient(90deg, var(--gelb2), var(--gelb)); }
+.passkopf .pk2 small { font-size: 14px; }
+.goldchip { font-family: var(--dick); font-size: 18px; padding: 8px 14px; border-radius: 12px; border: 3px solid var(--rand); background: linear-gradient(#fff07a, var(--gelb2)); text-shadow: var(--kontur); }
+.passliste { margin-top: 14px; display: grid; gap: 8px; }
+.passzeile { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 8px; align-items: stretch; }
+.passzeile.kopfzeile span { font-family: var(--dick); font-size: 16px; text-shadow: 0 2px 0 var(--rand); text-align: center; }
+.passzeile.kopfzeile .gold { color: var(--gelb); }
+.pstufe { display: grid; place-items: center; font-family: var(--dick); font-size: 20px; border-radius: 12px; border: 3px solid var(--rand); background: #2a1868; text-shadow: var(--kontur); }
+.passzeile.erreicht .pstufe { background: linear-gradient(#9affb0, #2aa84a); }
+.pfeld { cursor: pointer; display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; text-align: left; color: #fff;
+  border: 3px solid var(--rand); border-radius: 12px; background: linear-gradient(#3a2480, #2a1868); box-shadow: 0 3px 0 var(--rand); }
+.pfeld.gold { background: linear-gradient(#6a4a10, #3a2808); }
+.pfeld .ti { font-size: 26px; text-align: center; }
+.pfeld small { font-size: 14px; }
+.pfeld em { font-style: normal; font-family: var(--dick); font-size: 14px; color: var(--gelb); text-shadow: 0 2px 0 var(--rand); }
+.pfeld.kann { outline: 3px solid var(--gelb); animation: puls .7s infinite alternate; }
+.pfeld.ab { opacity: .5; cursor: default; }
+@media (max-width: 560px) { .pfeld { grid-template-columns: 30px 1fr; } .pfeld em { grid-column: 1 / -1; } .passkopf .pk2 { grid-template-columns: auto 1fr; } }
+
+/* ---------- Online-Suche ---------- */
+.suchbox { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 3px solid var(--rand); border-radius: 16px;
+  background: linear-gradient(100deg, #1f9a5a, #2a6ad8); box-shadow: 0 4px 0 var(--rand); }
+.suchbox b, .online .unterkopf { font-family: var(--dick); font-weight: 400; font-size: 24px; text-shadow: var(--kontur); }
+.suchbox small { font-size: 16px; }
+.suchoverlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 4, 30, .82); }
+.suchkasten { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; max-width: 420px; padding: 24px; border: 3px solid var(--rand); border-radius: 18px;
+  background: linear-gradient(#4a2f9e, #2a1868); box-shadow: 0 6px 0 var(--rand); }
+.suchkasten b { font-family: var(--dick); font-weight: 400; font-size: 26px; text-shadow: var(--kontur); }
+.suchkasten small { font-size: 16px; opacity: .9; }
+.kreisel { width: 56px; height: 56px; border-radius: 50%; border: 7px solid rgba(255, 255, 255, .2); border-top-color: var(--gelb); animation: drehen .9s linear infinite; }

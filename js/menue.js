@@ -18,6 +18,7 @@
   konto.aufgaben = konto.aufgaben || {};
   konto.shop = konto.shop || {};
   konto.rang = konto.rang || 0; konto.rangHoch = konto.rangHoch || 0;
+  konto.pass = konto.pass || {};
   // Alte Pokale vom Doppel-Kämpfer gehen an Damon und Moritz
   if (pokale.doppeldate) { pokale.damon = (pokale.damon || 0) + pokale.doppeldate; pokale.moritz = (pokale.moritz || 0) + pokale.doppeldate; delete pokale.doppeldate; }
 
@@ -76,7 +77,7 @@
 
   // ---------- Bildschirme ----------
   var screen = '';   // '' = Startbildschirm
-  var TITEL = { kaempfer: 'Kämpfer', shop: 'Shop', aufgaben: 'Tagesaufgaben', weg: 'Pokal-Weg', modi: 'Modus wählen', freunde: 'Mit Freunden spielen' };
+  var TITEL = { pass: 'Schuljahr-Pass', kaempfer: 'Kämpfer', shop: 'Shop', aufgaben: 'Tagesaufgaben', weg: 'Pokal-Weg', modi: 'Modus wählen', freunde: 'Mit Freunden spielen' };
   function oeffnen(s) { screen = s; klick(); aufbauen(); screenEl.scrollTop = 0; }
   document.getElementById('zurueck').addEventListener('click', function () { oeffnen(''); });
   addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menue.hidden && screen && truheEl.hidden) oeffnen(''); });
@@ -87,6 +88,7 @@
     var weg = BS.WEG.filter(function (w, i) { return gesamt() >= w.pokale && konto.weg.indexOf(i) < 0; }).length; if (weg) o.weg = weg;
     var auf = aufgabenHeute().filter(function (a) { return fortschritt(a) >= a.ziel && konto.aufgaben.abgeholt.indexOf(a.id) < 0; }).length; if (auf) o.aufgaben = auf;
     var tr = konto.truhen.tasche + konto.truhen.rucksack + konto.truhen.koffer + (shopHeute().gratisOffen ? 1 : 0); if (tr) o.shop = tr;
+    var ps = passOffen(); if (ps) o.pass = ps;
     return o;
   }
 
@@ -108,7 +110,7 @@
   function homeAufbauen() {
     var offen = offeneSachen();
     leisteEl.innerHTML = '';
-    [['shop', '🛒', 'Shop'], ['kaempfer', '👤', 'Kämpfer'], ['aufgaben', '✔', 'Aufgaben'], ['weg', '🏆', 'Pokal-Weg']].forEach(function (x) {
+    [['pass', '🎓', 'Pass'], ['shop', '🛒', 'Shop'], ['kaempfer', '👤', 'Kämpfer'], ['aufgaben', '✔', 'Aufgaben'], ['weg', '🏆', 'Pokal-Weg']].forEach(function (x) {
       var b = el('button', 'seitenknopf'); b.type = 'button';
       b.appendChild(el('span', 'si', x[1])); b.appendChild(el('span', 'st', x[2]));
       if (offen[x[0]]) b.appendChild(el('i', 'punkt', String(offen[x[0]])));
@@ -159,7 +161,7 @@
     if (!screen) { homeAufbauen(); return; }
     screenTitel.textContent = TITEL[screen];
     seite.innerHTML = '';
-    ({ kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg, modi: seiteModi, freunde: seiteFreunde })[screen]();
+    ({ pass: seitePass, kaempfer: seiteKaempfer, shop: seiteShop, aufgaben: seiteAufgaben, weg: seiteWeg, modi: seiteModi, freunde: seiteFreunde })[screen]();
   }
 
   // ---------- Bildschirm: Modi ----------
@@ -231,7 +233,15 @@
     var box = el('div', 'online');
     seite.appendChild(box);
     if (!online) {
-      box.appendChild(el('p', 'tipp', 'Online spielen nur echte Leute – keine Bots. Erstell einen Raum und schick den Code an deine Freunde (mind. 2 Spieler).'));
+      var such = el('div', 'suchbox');
+      var sm = modusVon(modus), suchbar = !sm.training;
+      such.appendChild(el('b', '', '🌍 Online suchen'));
+      such.appendChild(el('small', '', suchbar ? 'Spiel ' + sm.name + ' mit allen, die gerade auch suchen – nur echte Leute, keine Bots. Ab 2 Spielern geht es los.' : 'Wähl zuerst einen Online-Modus (nicht Trainingsplatz).'));
+      var sk = knopf('Suchen: ' + sm.icon + ' ' + sm.name, 'gelb', function () { sucheStarten(modus); });
+      sk.disabled = !suchbar; such.appendChild(sk);
+      seite.insertBefore(such, box);
+      box.appendChild(el('b', 'unterkopf', '👥 Mit Freunden (Raum-Code)'));
+      box.appendChild(el('p', 'tipp', 'Erstell einen Raum und schick den Code an deine Freunde (mind. 2 Spieler).'));
       var z1 = el('div', 'zeile');
       var name = el('input'); name.type = 'text'; name.maxLength = 16; name.placeholder = 'Dein Name'; name.value = meinName; name.setAttribute('aria-label', 'Dein Name');
       name.addEventListener('input', function () { meinName = name.value.trim(); Pixel.set('bravostars.name', meinName); kopfAufbauen(); });
@@ -291,11 +301,30 @@
   }
   function meineDaten() { return { kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl) }; }
   function verbinden(nachricht) {
+    letzteSuche = '';
     if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; aufbauen(); return; }
     onlineStatus = 'Verbinde … (der Server kann kurz zum Aufwachen brauchen)'; aufbauen();
     nachricht.name = meinName; var md = meineDaten(); for (var k in md) nachricht[k] = md[k];
     Netz.verbinden().then(function () { onlineStatus = ''; Netz.senden(nachricht); },
       function () { onlineStatus = 'Keine Verbindung zum Server. Nochmal versuchen?'; aufbauen(); });
+  }
+  var suchEl = document.createElement('div'); suchEl.className = 'suchoverlay'; suchEl.hidden = true; document.body.appendChild(suchEl);
+  var letzteSuche = '';
+  function sucheZeigen(text, unter) {
+    suchEl.innerHTML = '';
+    var b = el('div', 'suchkasten');
+    b.appendChild(el('div', 'kreisel'));
+    b.appendChild(el('b', '', text)); if (unter) b.appendChild(el('small', '', unter));
+    b.appendChild(knopf('Abbrechen', 'rot', function () { Netz.senden({ t: 'suche_stopp' }); suchEl.hidden = true; letzteSuche = ''; }));
+    suchEl.appendChild(b); suchEl.hidden = false;
+  }
+  function sucheStarten(m) {
+    if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; screen = 'freunde'; menue.hidden = false; ergebnis.hidden = true; aufbauen(); return; }
+    letzteSuche = m;
+    menue.hidden = false; ergebnis.hidden = true;
+    sucheZeigen('Verbinde …', 'Der Server kann kurz zum Aufwachen brauchen.');
+    var md = meineDaten(); md.t = 'suchen'; md.modus = m; md.name = meinName;
+    Netz.verbinden().then(function () { Netz.senden(md); }, function () { suchEl.hidden = true; onlineStatus = 'Keine Verbindung zum Server.'; screen = 'freunde'; aufbauen(); });
   }
   function wahlMelden() { if (online) { var md = meineDaten(); md.t = 'wahl'; Netz.senden(md); } }
   function onlineStarten(o) {
@@ -310,6 +339,13 @@
       modifikator: rg.mod && rg.mod !== 'heute' ? rg.mod : '', zeitFaktor: rg.zeit || 1 }, zeigeErgebnis);
   }
   Netz.bei(function (o) {
+    if (o.t === 'suche') {
+      var mm = modusVon(o.modus);
+      sucheZeigen('Suche Spieler für ' + mm.name + ' …', o.anzahl < 2 ? 'Noch niemand da – warte auf einen zweiten Spieler (' + o.sekunden + ' s).' : o.anzahl + ' Spieler gefunden – gleich geht es los!');
+      return;
+    }
+    if (o.t === 'gefunden' || o.t === 'suche_aus') { suchEl.hidden = true; return; }
+    if (o.t === 'raum_zu') { online = null; return; }
     if (o.t === 'lobby') {
       online = o;
       if (!istHost()) modus = o.modus;
@@ -322,7 +358,7 @@
     } else if (o.t === 'daten' && o.d && o.d.t === 'init' && warteInit) {
       warteInit.init = o.d; var w = warteInit; warteInit = null; onlineStarten(w);
     } else if (o.t === 'host_weg' || o.t === 'getrennt') {
-      online = null; warteInit = null;
+      online = null; warteInit = null; suchEl.hidden = true;
       onlineStatus = o.t === 'host_weg' ? 'Der Host hat den Raum verlassen.' : 'Die Verbindung zum Server ist weg.';
       if (!imSpiel) { ergebnis.hidden = true; menue.hidden = false; aufbauen(); }
     }
@@ -347,7 +383,10 @@
       b.style.setProperty('--farbe', def.farbe); b.style.setProperty('--d', (i * 0.03) + 's');
       b.setAttribute('aria-pressed', def.id === wahl ? 'true' : 'false');
       var bi = el('div', 'bild'); bi.appendChild(bild(def, 'normal', skinVon(def.id))); b.appendChild(bi);
+      b.style.setProperty('--selten', def.seltenheit.farbe);
+      b.classList.add('mitselten');
       b.appendChild(el('div', 'name', def.name));
+      b.appendChild(el('div', 'seltenheit', def.seltenheit.name));
       b.appendChild(el('div', 'pok', '🏆 ' + (pokale[def.id] || 0)));
       b.appendChild(el('div', 'stufe', 'St. ' + stufe(def.id)));
       b.addEventListener('click', function () { wahl = def.id; Pixel.set(K_WAHL, wahl); klick(); wahlMelden(); aufbauen(); });
@@ -360,7 +399,8 @@
     var gr = el('div', 'gross'); gr.appendChild(bild(d, 'super', skinVon(d.id))); info.appendChild(gr);
     var t = el('div', 'text');
     t.appendChild(el('h2', '', d.name));
-    t.appendChild(el('p', 'titel', d.titel + ' · ' + d.rolle));
+    var ti = el('p', 'titel'); var se = el('span', 'seltenchip', d.seltenheit.name); se.style.background = d.seltenheit.farbe; ti.appendChild(se);
+    ti.appendChild(document.createTextNode(' ' + d.titel + ' · ' + d.rolle)); t.appendChild(ti);
     var w = el('div', 'werte');
     [['Leben', d.hp, 200], ['Tempo', d.tempo - 120, 130], ['Reichweite', d.angriff.reichweite, 10]].forEach(function (x) {
       var z = el('div', 'wert'); z.appendChild(el('span', '', x[0]));
@@ -401,7 +441,7 @@
       var b = el('button', 'skin' + (an ? ' an' : '') + (hat ? '' : ' fehlt')); b.type = 'button';
       b.appendChild(bild(d, 'normal', s.id));
       b.appendChild(el('b', '', s.name));
-      b.appendChild(el('small', '', an ? 'Angelegt' : hat ? 'Anlegen' : s.selten ? 'Selten – aus Truhen' : s.preis + ' 🪙 im Shop'));
+      b.appendChild(el('small', '', an ? 'Angelegt' : hat ? 'Anlegen' : s.pass ? '🎓 Schuljahr-Pass' : s.selten ? 'Selten – aus Truhen' : s.preis + ' 🪙 im Shop'));
       b.addEventListener('click', function () {
         if (!hat) {
           if (s.selten || muenzen < s.preis) return;
@@ -441,7 +481,7 @@
     if (konto.shop.tag !== tag) konto.shop = { tag: tag, gekauft: [], gratis: false };
     var r = BS.zufall(tag * 31 + 7), angebote = [];
     var skins = [];
-    BS.KAEMPFER.forEach(function (k) { (BS.SKINS[k.id] || []).forEach(function (s) { if (!s.selten) skins.push({ k: k, s: s }); }); });
+    BS.KAEMPFER.forEach(function (k) { (BS.SKINS[k.id] || []).forEach(function (s) { if (!s.selten && !s.pass) skins.push({ k: k, s: s }); }); });
     for (var i = 0; i < 2 && skins.length; i++) {
       var x = skins.splice(Math.floor(r() * skins.length), 1)[0];
       angebote.push({ id: 'skin-' + x.k.id + '-' + x.s.id, art: 'skin', k: x.k, s: x.s, preis: Math.round(x.s.preis * 0.8), name: x.s.name + ' (' + x.k.name + ')', text: '20 % günstiger als sonst' });
@@ -519,7 +559,7 @@
   function zufallsBeute() {
     var r = Math.random();
     if (r < 0.16) {
-      var offen = []; BS.KAEMPFER.forEach(function (k) { (BS.SKINS[k.id] || []).forEach(function (s) { if (!hatSkin(k.id, s.id)) offen.push({ k: k, s: s }); }); });
+      var offen = []; BS.KAEMPFER.forEach(function (k) { (BS.SKINS[k.id] || []).forEach(function (s) { if (!s.pass && !hatSkin(k.id, s.id)) offen.push({ k: k, s: s }); }); });
       if (offen.length) { var x = offen[Math.floor(Math.random() * offen.length)]; (konto.skins[x.k.id] = konto.skins[x.k.id] || []).push(x.s.id); return { icon: '👕', text: 'Skin: ' + x.s.name + ' für ' + x.k.name, k: x.k, s: x.s, selten: true }; }
     } else if (r < 0.32) {
       var em = BS.EMOTES.filter(function (e) { return konto.emotes.indexOf(e.id) < 0; });
@@ -590,10 +630,10 @@
       var c = el('div', 'aufgabe' + (ab ? ' weg' : f >= a.ziel ? ' fertig' : ''));
       c.appendChild(el('b', '', a.text));
       var bar = el('i', 'bar'), fill = el('b'); fill.style.width = Math.round(f / a.ziel * 100) + '%'; bar.appendChild(fill); c.appendChild(bar);
-      c.appendChild(el('small', '', f + ' / ' + a.ziel + ' · Belohnung ' + a.lohn + ' 🪙'));
+      c.appendChild(el('small', '', f + ' / ' + a.ziel + ' · Belohnung ' + a.lohn + ' 🪙 + 40 🎓'));
       var b = knopf(ab ? 'Abgeholt' : f >= a.ziel ? 'Abholen' : 'Läuft', 'gelb', function () {
         if (ab || f < a.ziel) return;
-        konto.aufgaben.abgeholt.push(a.id); muenzen += a.lohn; kasse(); speichern(); aufbauen();
+        konto.aufgaben.abgeholt.push(a.id); muenzen += a.lohn; passPunkte(40); kasse(); speichern(); aufbauen();
       });
       b.disabled = ab || f < a.ziel; c.appendChild(b);
       l.appendChild(c);
@@ -610,14 +650,67 @@
     if (w.art === 'ausruestung') { var t = BS.teil(w.wert); return { icon: t.icon, text: t.name }; }
     var p = w.wert.split('/'), s = BS.skin(p[0], p[1]); return { icon: '👕', text: 'Skin ' + s.name + ' (' + BS.kaempfer(p[0]).name + ')' };
   }
-  function wegAbholen(i) {
-    var w = BS.WEG[i]; if (konto.weg.indexOf(i) >= 0 || gesamt() < w.pokale) return;
-    konto.weg.push(i);
+  function belohnungGeben(w) {
     if (w.art === 'muenzen') muenzen += w.wert;
     if (w.art === 'truhe') konto.truhen[w.wert]++;
     if (w.art === 'emote' && konto.emotes.indexOf(w.wert) < 0) konto.emotes.push(w.wert);
     if (w.art === 'ausruestung' && konto.teile.indexOf(w.wert) < 0) konto.teile.push(w.wert);
     if (w.art === 'skin') { var p = w.wert.split('/'); if (!hatSkin(p[0], p[1])) (konto.skins[p[0]] = konto.skins[p[0]] || []).push(p[1]); }
+  }
+
+  // ---------- Schuljahr-Pass ----------
+  function passStand() {
+    var sa = BS.saison();
+    if (konto.pass.saison !== sa.nr) konto.pass = { saison: sa.nr, punkte: 0, frei: [], gold: [], goldGekauft: false };
+    return konto.pass;
+  }
+  function passStufe() { return Math.min(BS.PASS.stufen, Math.floor(passStand().punkte / BS.PASS.punkte)); }
+  function passPunkte(n) { passStand().punkte += n; }
+  function passOffen() {
+    var ps = passStand(), st = passStufe(), n = 0;
+    for (var i = 1; i <= st; i++) { if (ps.frei.indexOf(i) < 0) n++; if (ps.goldGekauft && ps.gold.indexOf(i) < 0) n++; }
+    return n;
+  }
+  function seitePass() {
+    var sa = BS.saison(), ps = passStand(), st = passStufe();
+    var kopf = el('div', 'passkopf');
+    var kt = el('div', 'pk1'); kt.appendChild(el('b', '', '🎓 ' + sa.name)); kt.appendChild(el('small', '', 'Noch ' + sa.restTage + ' Tage · Pass-Punkte gibt es für jede Runde und jede Tagesaufgabe.'));
+    kopf.appendChild(kt);
+    var lv = el('div', 'pk2');
+    lv.appendChild(el('span', 'stufenkreis', String(st)));
+    var bar = el('i', 'pbar'), fill = el('b'); fill.style.width = (st >= BS.PASS.stufen ? 100 : (ps.punkte % BS.PASS.punkte)) + '%'; bar.appendChild(fill); lv.appendChild(bar);
+    lv.appendChild(el('small', '', st >= BS.PASS.stufen ? 'Pass komplett!' : (ps.punkte % BS.PASS.punkte) + ' / ' + BS.PASS.punkte + ' bis Stufe ' + (st + 1)));
+    kopf.appendChild(lv);
+    if (!ps.goldGekauft) {
+      var gk = knopf('Gold-Pass freischalten · ' + BS.PASS.goldPreis + ' 🪙', 'gelb', function () {
+        if (muenzen < BS.PASS.goldPreis) return; muenzen -= BS.PASS.goldPreis; ps.goldGekauft = true; kasse(); speichern(); aufbauen();
+      });
+      gk.disabled = muenzen < BS.PASS.goldPreis; kopf.appendChild(gk);
+    } else kopf.appendChild(el('span', 'goldchip', '★ Gold-Pass aktiv'));
+    seite.appendChild(kopf);
+    var liste = el('div', 'passliste');
+    var spalten = el('div', 'passzeile kopfzeile'); spalten.appendChild(el('span', '', 'Stufe')); spalten.appendChild(el('span', '', 'Gratis')); spalten.appendChild(el('span', 'gold', '★ Gold')); liste.appendChild(spalten);
+    for (var i = 1; i <= BS.PASS.stufen; i++) (function (i) {
+      var z = el('div', 'passzeile' + (i <= st ? ' erreicht' : ''));
+      z.appendChild(el('span', 'pstufe', String(i)));
+      [false, true].forEach(function (gold) {
+        var w = BS.passBelohnung(i, gold), tx = wegText(w), l2 = gold ? ps.gold : ps.frei, ab = l2.indexOf(i) >= 0;
+        var kann = i <= st && !ab && (!gold || ps.goldGekauft);
+        var f = el('button', 'pfeld' + (gold ? ' gold' : '') + (ab ? ' ab' : '') + (kann ? ' kann' : '')); f.type = 'button';
+        f.appendChild(el('span', 'ti', tx.icon)); f.appendChild(el('small', '', tx.text));
+        f.appendChild(el('em', '', ab ? '✓' : kann ? 'Abholen' : gold && !ps.goldGekauft ? '🔒' : ''));
+        f.addEventListener('click', function () { if (!kann) return; l2.push(i); belohnungGeben(w); kasse(); speichern(); aufbauen(); });
+        z.appendChild(f);
+      });
+      liste.appendChild(z);
+    })(i);
+    seite.appendChild(liste);
+  }
+
+  function wegAbholen(i) {
+    var w = BS.WEG[i]; if (konto.weg.indexOf(i) >= 0 || gesamt() < w.pokale) return;
+    konto.weg.push(i);
+    belohnungGeben(w);
     kasse(); speichern(); aufbauen();
   }
   function seiteWeg() {
@@ -674,6 +767,9 @@
       }
       aufgabenZaehlen(e).forEach(function (a) { extra.push('Aufgabe geschafft: ' + a.text + ' – im Tab „Aufgaben“ abholen!'); });
       muenzen += gewinn;
+      var pp = (e.ergebnis === 'sieg' ? 30 : e.ergebnis === 'unentschieden' ? 20 : 15) + Math.min(10, (e.kos || 0) * 2);
+      var passVorher = passStufe(); passPunkte(pp);
+      extra.unshift('🎓 +' + pp + ' Pass-Punkte' + (passStufe() > passVorher ? ' – neue Pass-Stufe ' + passStufe() + '!' : ''));
       var neueWeg = BS.WEG.filter(function (w, i) { return gesamt() >= w.pokale && konto.weg.indexOf(i) < 0; }).length;
       if (neueWeg) extra.push('Auf dem Pokal-Weg wartet ' + (neueWeg === 1 ? 'eine Belohnung' : neueWeg + ' Belohnungen') + '!');
     }
@@ -718,11 +814,12 @@
       box.appendChild(tab);
     }
     var k = el('div', 'knoepfe');
-    var nochmal = knopf(online ? 'Nochmal (alle)' : 'Nochmal', 'gelb', starten);
+    var gesucht = !!(letzteSuche && e.online);
+    var nochmal = knopf(gesucht ? 'Nochmal suchen' : online ? 'Nochmal (alle)' : 'Nochmal', 'gelb', gesucht ? function () { sucheStarten(letzteSuche); } : starten);
     var zur = knopf(online ? 'Zur Lobby' : 'Zum Menü', '', function () { ergebnis.hidden = true; menue.hidden = false; screen = ''; aufbauen(); });
-    if (online && !istHost()) nochmal.hidden = true;
+    if (online && !istHost() && !gesucht) nochmal.hidden = true;
     k.appendChild(nochmal); k.appendChild(zur); box.appendChild(k);
-    if (online && !istHost()) box.appendChild(el('p', 'stat', 'Wenn der Host nochmal startet, geht es automatisch los.'));
+    if (online && !istHost() && !gesucht) box.appendChild(el('p', 'stat', 'Wenn der Host nochmal startet, geht es automatisch los.'));
     ergebnis.appendChild(box);
     ergebnis.hidden = false;
     (nochmal.hidden ? zur : nochmal).focus();

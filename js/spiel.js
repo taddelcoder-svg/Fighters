@@ -13,6 +13,28 @@
   function winkelDiff(a, b) { var d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
   function mischen(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
+  // Laufbild: linke und rechte Beinhälfte abwechselnd einen Pixel anheben
+  var laufCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null, weissCache = laufCache ? new WeakMap() : null;
+  function laufBild(img, phase) {
+    if (!laufCache) return img;
+    var m = laufCache.get(img); if (!m) { m = []; laufCache.set(img, m); }
+    if (m[phase]) return m[phase];
+    var w = img.width, h = img.height, beine = Math.max(3, Math.round(h * 0.22)), oben = h - beine, halb = Math.floor(w / 2);
+    var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d');
+    x.drawImage(img, 0, 0, w, oben, 0, 0, w, oben);
+    x.drawImage(img, 0, oben, halb, beine, 0, oben - (phase ? 0 : 1), halb, beine);
+    x.drawImage(img, halb, oben, w - halb, beine, halb, oben - (phase ? 1 : 0), w - halb, beine);
+    m[phase] = c; return c;
+  }
+  // Weiße Silhouette fürs Aufblitzen bei Treffern
+  function weissBild(img) {
+    if (!weissCache) return img;
+    var c = weissCache.get(img); if (c) return c;
+    c = document.createElement('canvas'); c.width = img.width; c.height = img.height; var x = c.getContext('2d');
+    x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    weissCache.set(img, c); return c;
+  }
+
   BS.starten = function (opt, fertig) {
     var root = document.getElementById('spiel');
     root.innerHTML = '';
@@ -200,7 +222,7 @@
       }
       return freiesFeld(Math.round(B / 2 - 0.5 + Math.cos(w) * (B / 2 - 3)), Math.round(H / 2 - 0.5 + Math.sin(w) * (H / 2 - 3)));
     }
-    kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); });
+    kaempfer.forEach(function (k) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; spawns.push(s); k.spawnT = 0.45; });
     if (host) netz.senden({ t: 'an_alle', d: { t: 'init', karte: kartenName, mod: mod, k: kaempfer.map(function (k) { return [k.def.id, k.team, k.name || '', k.mensch || 0, k.stufe, k.skin ? k.skin.id : '', k.ausruestung]; }) } });
 
     // ---------- Wege für die Bots (Breitensuche auf dem Raster) ----------
@@ -308,7 +330,7 @@
       if (ziel.ultra > 0) menge *= 0.75;
       if (von && von.gross > 0) menge *= 1.6;
       menge = Math.round(menge);
-      ziel.hp -= menge; ziel.zuletztGetroffen = zeit;
+      ziel.hp -= menge; ziel.zuletztGetroffen = zeit; ziel.trefferT = 0.12;
       if (von) von.statSchaden += menge;
       if (von && von.team !== ziel.team) ultraLaden(von, menge);
       if (ziel.unsichtbar > 0) ziel.unsichtbar = 0;
@@ -345,6 +367,7 @@
     }
     function sterben(k, von) {
       feedPlus(von, k);
+      fx({ art: 'geist', ki: kaempfer.indexOf(k), x: k.x, y: k.y, t: 0, d: 0.9, links: Math.cos(k.blick) < 0 });
       k.tot = true; k.hp = 0; k.dash = null; k.stoss = null; k.salve = [];
       for (var i = 0; i < 14; i++) fx({ art: 'splitter', x: k.x, y: k.y - 14, vx: rnd(-200, 200), vy: rnd(-260, 80), t: 0, d: 0.7, farbe: k.def.farbe });
       sfx.tone(300, 0.3, 'sawtooth', 0.07, 80);
@@ -381,7 +404,7 @@
       if (ball && ball.traeger === k) return ballSchiessen(k, w, dist);
       if (k.munition < 1) return false;
       var a = k.def.angriff;
-      k.munition -= 1; k.blick = w; k.zuletztAktiv = zeit;
+      k.munition -= 1; k.blick = w; k.zuletztAktiv = zeit; k.angriffT = 0.15;
       if (k.unsichtbar > 0) k.unsichtbar = 0;
       if (a.art === 'schuss') {
         var n = a.anzahl || 1;
@@ -480,7 +503,7 @@
     // ---------- Supers ----------
     function superZuenden(k, w, dist) {
       if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.superLadung < k.def.superKosten || k.dash) return false;
-      k.superLadung = 0; k.blick = w; k.zuletztAktiv = zeit; k.statSupers++;
+      k.superLadung = 0; k.blick = w; k.zuletztAktiv = zeit; k.statSupers++; k.angriffT = 0.15;
       var maxD = (k.def.superReichweite || 0) * T, d = klemm(dist === undefined ? maxD : dist, T, Math.max(T, maxD)), z = zielPunkt(k, w, d);
       sfx.tone(660, 0.1, 'square', 0.07); sfx.tone(990, 0.18, 'square', 0.06, null, 0.08);
       fx({ art: 'ring', x: k.x, y: k.y, r: 10, t: 0, d: 0.4, farbe: k.def.farbe });
@@ -1143,6 +1166,9 @@
       d.k.forEach(function (a, i) {
         var k = kaempfer[i]; if (!k) return;
         if (k === spieler && a[2] < k.hp && !k.tot) wackeln = Math.min(10, wackeln + 4);
+        if (a[2] < k.hp && !k.tot) k.trefferT = 0.12;
+        if (a[5] < k.munition) k.angriffT = 0.15;
+        if (k.tot && !a[10]) k.spawnT = 0.45;
         k.zx = a[0]; k.zy = a[1];
         if (!k.da || (k.tot && !a[10]) || Math.hypot(k.x - a[0], k.y - a[1]) > 160) { k.x = a[0]; k.y = a[1]; k.da = true; }
         k.hp = a[2]; k.maxHp = a[3]; if (k !== spieler) k.blick = a[4];
@@ -1188,7 +1214,10 @@
       if (ball && ball.traeger) { ball.x = ball.traeger.x + Math.cos(ball.traeger.blick) * 16; ball.y = ball.traeger.y + 2 + Math.sin(ball.traeger.blick) * 10; }
       if (torAnsage > 0) torAnsage -= dt;
       tresore.forEach(function (t) { if (t.blitz > 0) t.blitz -= dt; });
-      kaempfer.forEach(function (k) { if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; } });
+      kaempfer.forEach(function (k) {
+        if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
+        ['angriffT', 'trefferT', 'spawnT'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+      });
       effekte.forEach(function (e) { e.t += dt; if (e.vx !== undefined) { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 400 * dt; } });
       effekte = effekte.filter(function (e) { return e.t < e.d; });
       zahlen.forEach(function (z) { z.t += dt; z.y -= 40 * dt; });
@@ -1230,11 +1259,11 @@
       zeit += dt;
       kaempfer.forEach(function (k) {
         if (k.tot) {
-          if (team && !k.weg) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; } }
+          if (team && !k.weg) { k.respawn -= dt; if (k.respawn <= 0) { var s = spawnPunkt(k); k.x = s.x; k.y = s.y; k.tot = false; k.hp = k.maxHp; k.munition = 3; k.schild = 1.5; k.betaeubt = 0; k.gross = 0; k.unsichtbar = 0; k.verliebt = 0; k.spawnT = 0.45; } }
           return;
         }
         if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
-        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra', 'angriffT', 'trefferT', 'spawnT'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
         // Munition
         var lt = k.def.laden * k.ladeF * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
         if (k.munition < 3) { k.ladeT += dt; if (k.ladeT >= lt) { k.ladeT = 0; k.munition++; } } else k.ladeT = 0;
@@ -1440,7 +1469,21 @@
         ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.ellipse(k.x, k.y + 2, 30, 14, k.blick, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#3d8fd6'; ctx.fillRect(k.x - 22, k.y + 8, 44, 4);
       }
-      Pixel.draw(ctx, img, k.x - bw / 2, k.y + 8 - bh - bob, s, Math.cos(k.blick) < 0);
+      var spiegeln = Math.cos(k.blick) < 0;
+      if (k.bewegt && !def.laufSprite && !k.dash) img = laufBild(img, Math.floor(k.lauf * 7) % 2);
+      var neig = k.bewegt ? Math.sin(k.lauf * 12) * 0.06 : 0;
+      var atmen = k.bewegt ? 1 : 1 + Math.sin(zeit * 3 + k.x * 0.1) * 0.025;
+      var ruck = k.angriffT > 0 ? k.angriffT / 0.15 : 0;
+      var auf = k.spawnT > 0 ? 1 - k.spawnT / 0.45 : 1;
+      var jubel = k.jubel && ende ? Math.abs(Math.sin(performance.now() / 120)) * 16 : 0;
+      ctx.save();
+      ctx.translate(k.x - Math.cos(k.blick) * ruck * 4, k.y + 8 - bob - jubel - Math.sin(k.blick) * ruck * 2);
+      ctx.rotate(neig + (jubel ? Math.sin(performance.now() / 120) * 0.12 : 0));
+      ctx.scale((1 + ruck * 0.07) * (0.4 + auf * 0.6), atmen * (1 - ruck * 0.05) * (0.4 + auf * 0.6));
+      if (auf < 1) ctx.globalAlpha = transparent * auf;
+      Pixel.draw(ctx, img, -bw / 2, -bh, s, spiegeln);
+      if (k.trefferT > 0) { ctx.globalAlpha = transparent * Math.min(1, k.trefferT / 0.12) * 0.85; Pixel.draw(ctx, weissBild(img), -bw / 2, -bh, s, spiegeln); }
+      ctx.restore(); ctx.globalAlpha = transparent;
       if (k.schild > 0) { ctx.strokeStyle = 'rgba(200,220,255,.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(k.x, k.y - bh / 2 + 8, bh * 0.6, 0, Math.PI * 2); ctx.stroke(); }
       if (k.verliebt > 0) { for (var hi = 0; hi < 2; hi++) zeichneHerz(k.x - 8 + hi * 16, k.y - bh - 2 + Math.sin(zeit * 6 + hi) * 3, 5); }
       if (k.betaeubt > 0) { for (var i = 0; i < 3; i++) { var w = zeit * 5 + i * 2.1; Pixel.text(ctx, '*', k.x + Math.cos(w) * 14 - 3, k.y - bh - 4 + Math.sin(w) * 4, 3, '#ffd23f'); } }
@@ -1640,6 +1683,16 @@
         if (e.art === 'splitter' || e.art === 'staub') { ctx.fillStyle = e.farbe; var g = e.art === 'staub' ? 6 + f * 10 : 6; ctx.fillRect(e.x - g / 2, e.y - g / 2, g, g); }
         else if (e.art === 'ring') { ctx.strokeStyle = e.farbe; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(e.x, e.y, 10 + (e.r - 10) * Math.min(1, f * 1.5) + (e.r < 20 ? f * 60 : 0), 0, Math.PI * 2); ctx.stroke(); }
         else if (e.art === 'boom') { ctx.fillStyle = e.farbe; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.5 + f * 0.6), 0, Math.PI * 2); ctx.fill(); }
+        else if (e.art === 'geist') {
+          var gk = kaempfer[e.ki];
+          if (gk) {
+            var gi = gk.def.sprite('tot'); if (gk.skin) gi = BS.umfaerben(gi, gk.skin);
+            var gs = (gk.def.skala || 2) * (1 - f * 0.4);
+            ctx.save(); ctx.globalAlpha = (1 - f) * 0.8; ctx.translate(e.x, e.y + 8 - f * 50); ctx.rotate(f * (e.links ? -0.8 : 0.8));
+            Pixel.draw(ctx, weissBild(gi), -gi.width * gs / 2, -gi.height * gs, gs, e.links);
+            ctx.restore();
+          }
+        }
         else if (e.art === 'hieb') { ctx.strokeStyle = e.farbe; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.6 + f * 0.4), e.w - e.breite / 2, e.w + e.breite / 2); ctx.stroke(); }
         ctx.globalAlpha = 1;
       });
@@ -1825,6 +1878,7 @@
     function beenden(e) {
       if (ende) return;
       ende = e; e.kos = e.kos || 0; e.online = !!netz;
+      if (e.ergebnis === 'sieg') kaempfer.forEach(function (k) { if (k.team === spieler.team && !k.tot) k.jubel = true; });
       if (e.schaden === undefined) { e.schaden = Math.round(spieler.statSchaden); e.supers = spieler.statSupers; e.tore = spieler.statTore; }
       var ergebnis = e.ergebnis;
       if (ergebnis === 'sieg') { sfx.tone(523, 0.15, 'square', 0.07); sfx.tone(659, 0.15, 'square', 0.07, null, 0.15); sfx.tone(784, 0.3, 'square', 0.07, null, 0.3); }

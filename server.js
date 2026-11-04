@@ -120,9 +120,44 @@ function verlassen(c) {
   if (r.laeuft) senden(r.host, { t: 'weg', id: c.id });
   lobby(r);
 }
+function starte(r) {
+  r.laeuft = true;
+  const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung, team: i % 2 }));
+  r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: r.host.id, regeln: r.regeln }));
+  lobby(r);
+}
+
+/* ---------- Online-Suche: Warteschlange pro Modus, nur echte Spieler ---------- */
+const SUCH_MODI = ['sterne', 'kloppe', 'ball', 'huegel', 'tresor', 'kopfgeld', 'royale', 'duo'];
+const schlangen = new Map();   // modus -> [{ c, seit }]
+function ausSchlange(c) {
+  if (!c.sucht) return;
+  const l = schlangen.get(c.sucht) || [];
+  schlangen.set(c.sucht, l.filter((e) => e.c !== c));
+  c.sucht = null;
+}
+setInterval(() => {
+  const jetzt = Date.now();
+  schlangen.forEach((l, modus) => {
+    l = l.filter((e) => e.c.offen && e.c.sucht === modus);
+    const max = modus === 'royale' || modus === 'duo' ? 8 : 6;
+    // Start, wenn der Modus voll ist oder seit dem zweiten Spieler 6 Sekunden vergangen sind
+    while (l.length >= 2 && (l.length >= max || jetzt - l[1].seit >= 6000)) {
+      const gruppe = l.splice(0, max).map((e) => e.c);
+      const r = { code: code(), host: gruppe[0], spieler: gruppe, modus, laeuft: false, regeln: { mod: 'heute', zeit: 1 }, zufall: true };
+      raeume.set(r.code, r);
+      gruppe.forEach((x) => { x.sucht = null; x.raum = r; senden(x, { t: 'du', id: x.id }); senden(x, { t: 'gefunden', anzahl: gruppe.length }); });
+      starte(r);
+    }
+    schlangen.set(modus, l);
+    l.forEach((e) => senden(e.c, { t: 'suche', modus, anzahl: l.length, sekunden: Math.round((jetzt - e.seit) / 1000) }));
+  });
+}, 1000);
+
 function weg(c) {
   if (!c.offen) return;
   c.offen = false; clients.delete(c);
+  ausSchlange(c);
   verlassen(c);
   try { c.sock.destroy(); } catch (e) {}
 }
@@ -152,6 +187,17 @@ function nachricht(c, o) {
       break;
     }
     case 'verlassen': verlassen(c); break;
+    case 'suchen': {
+      if (SUCH_MODI.indexOf(o.modus) < 0) return senden(c, { t: 'fehler', text: 'Diesen Modus gibt es online nicht.' });
+      verlassen(c); ausSchlange(c);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung);
+      c.sucht = o.modus;
+      if (!schlangen.has(o.modus)) schlangen.set(o.modus, []);
+      schlangen.get(o.modus).push({ c, seit: Date.now() });
+      senden(c, { t: 'suche', modus: o.modus, anzahl: schlangen.get(o.modus).length, sekunden: 0 });
+      break;
+    }
+    case 'suche_stopp': ausSchlange(c); senden(c, { t: 'suche_aus' }); break;
     case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
     case 'regeln': if (r && r.host === c && !r.laeuft) {
@@ -162,13 +208,14 @@ function nachricht(c, o) {
       if (r.modus === 'training') return senden(c, { t: 'fehler', text: 'Der Trainingsplatz geht nur allein.' });
       if (r.spieler.length < 2) return senden(c, { t: 'fehler', text: 'Online spielen nur echte Leute – warte, bis mindestens ein Freund im Raum ist.' });
       if (r.modus !== 'royale' && r.modus !== 'duo' && r.spieler.length > 6) return senden(c, { t: 'fehler', text: 'Im Team-Modus passen höchstens 6 Leute rein (3 gegen 3).' });
-      r.laeuft = true;
-      const liste = r.spieler.map((x, i) => ({ id: x.id, name: x.name, kaempfer: x.kaempfer, stufe: x.stufe, skin: x.skin, ausruestung: x.ausruestung, team: i % 2 }));
-      r.spieler.forEach((x) => senden(x, { t: 'start', modus: r.modus, spieler: liste, host: c.id, regeln: r.regeln }));
-      lobby(r);
+      starte(r);
       break;
     }
-    case 'ende': if (r && r.host === c) { r.laeuft = false; lobby(r); } break;
+    case 'ende': if (r && r.host === c) {
+      r.laeuft = false;
+      if (r.zufall) { r.spieler.forEach((x) => { x.raum = null; senden(x, { t: 'raum_zu' }); }); raeume.delete(r.code); }
+      else lobby(r);
+    } break;
     // Weiterreichen: Gast -> Host (Eingaben) und Host -> alle Gäste (Spielstand)
     case 'an_host': if (r && r.laeuft && r.host !== c) senden(r.host, { t: 'von', id: c.id, d: o.d }); break;
     case 'an_alle': if (r && r.host === c) r.spieler.forEach((x) => { if (x !== c) senden(x, { t: 'daten', d: o.d }); }); break;

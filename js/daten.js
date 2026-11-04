@@ -1,6 +1,7 @@
 // Kämpfer, Spielmodi und Karten von Bravo Stars.
 // Die Figuren kommen aus Crazy Lineup (js/sprites.js), jede hat einen Angriff und einen Super.
 (function () {
+  var BS_SELTENHEITEN;
   // Tempo in Pixeln pro Sekunde (1 Feld = 40 px)
   var LANGSAM = 125, NORMAL = 145, SCHNELL = 165, RASEND = 182;
 
@@ -147,6 +148,18 @@
       talent: { superF: 1.2 }, talentName: 'Goldader', talentText: 'Super lädt 20 % schneller.' }
   };
   KAEMPFER.forEach(function (k) { var e = EXTRAS[k.id]; for (var f in e) k[f] = e[f]; });
+
+  // Seltenheiten (nur Anzeige: Rahmenfarbe und Etikett)
+  var SELTENHEITEN = [
+    { id: 'selten', name: 'Selten', farbe: '#4ac85a' },
+    { id: 'superselten', name: 'Super-selten', farbe: '#3a8ae8' },
+    { id: 'episch', name: 'Episch', farbe: '#a84ae8' },
+    { id: 'mythisch', name: 'Mythisch', farbe: '#e83a5a' },
+    { id: 'legendaer', name: 'Legendär', farbe: '#ffc828' }
+  ];
+  var SELTEN = { matteo: 4, felix: 3, julian: 2, moritz: 2, leon: 1, damon: 1, omar: 0, philipp: 0, timo: 0, mo: 0, ecki: 0, saro: 3 };
+  KAEMPFER.forEach(function (k) { k.seltenheit = SELTENHEITEN[SELTEN[k.id] || 0]; k.seltenRang = SELTEN[k.id] || 0; });
+  BS_SELTENHEITEN = SELTENHEITEN;
 
   // Stufen: jede Stufe +7 % Leben und Schaden; Kosten in Münzen für den Schritt auf die nächste Stufe
   var STUFE_KOSTEN = [0, 20, 35, 75, 140, 290, 480, 800, 1250];
@@ -458,6 +471,7 @@
   window.BS = window.BS || {};
   BS.KAEMPFER = KAEMPFER;
   BS.MODI = MODI;
+  BS.SELTENHEITEN = BS_SELTENHEITEN;
   BS.STUFE_KOSTEN = STUFE_KOSTEN; BS.MAX_STUFE = MAX_STUFE; BS.TRICK_AB = TRICK_AB; BS.TALENT_AB = TALENT_AB;
   // Karten je Modus; welche heute dran ist, entscheidet BS.karteHeute (extras.js)
   BS.KARTEN_FUER = {

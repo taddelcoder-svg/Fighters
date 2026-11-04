@@ -33,7 +33,8 @@
     ],
     damon: [
       { id: 'tour', name: 'Tour-Shirt', preis: 150, farben: { '#f2f2f0': '#141418', '#d0d0d0': '#2a2a32', '#c81e2a': '#ffd23f', '#8a1018': '#b8902a' } },
-      { id: 'zombie', name: 'Zombie-Konzert', preis: 400, selten: true, farben: { '#eec2a4': '#9ad08a', '#d6a486': '#7ab06a', '#f2f2f0': '#6a5a4a', '#d0d0d0': '#4a3a2a' } }
+      { id: 'zombie', name: 'Zombie-Konzert', preis: 400, selten: true, farben: { '#eec2a4': '#9ad08a', '#d6a486': '#7ab06a', '#f2f2f0': '#6a5a4a', '#d0d0d0': '#4a3a2a' } },
+      { id: 'abschlussball', name: 'Abschlussball', pass: true, farben: { '#f2f2f0': '#1a1a24', '#d0d0d0': '#2a2a3a', '#c81e2a': '#ffd23f', '#8a1018': '#e0b020', '#a8a8a8': '#1a1a24', '#8a8a8a': '#101018' } }
     ],
     moritz: [
       { id: 'labor', name: 'Laborkittel', preis: 200, farben: { '#2a3a7a': '#f2f2ee', '#1e2a5a': '#c8ccd0', '#ffd23f': '#3a6ad8', '#ff8a1c': '#d83a3a' } },
@@ -41,7 +42,8 @@
     ],
     ecki: [
       { id: 'sprinter', name: 'Sprinter', preis: 200, farben: { '#a8acb2': '#ffd23f', '#8a8e96': '#e0b020', '#3a4a6a': '#141418', '#e84a3a': '#3ab0e8' } },
-      { id: 'pyjama', name: 'Nachts um drei', preis: 300, selten: true, farben: { '#a8acb2': '#a8c8f0', '#8a8e96': '#88a8d8', '#3a4a6a': '#a8c8f0' } }
+      { id: 'pyjama', name: 'Nachts um drei', preis: 300, selten: true, farben: { '#a8acb2': '#a8c8f0', '#8a8e96': '#88a8d8', '#3a4a6a': '#a8c8f0' } },
+      { id: 'goldsprint', name: 'Goldmedaille', pass: true, farben: { '#a8acb2': '#ffd23f', '#8a8e96': '#c8960a', '#3a4a6a': '#ffd23f', '#e84a3a': '#ffffff' } }
     ],
     philipp: [
       { id: 'streber', name: 'Heimlicher Streber', preis: 150, farben: { '#1e4a3c': '#e8e8e8', '#163a2e': '#c8c8c8' } },
@@ -161,6 +163,32 @@
     return r < 0.4 ? 'keiner' : MODIFIKATOREN[1 + Math.floor((r - 0.4) / 0.6 * (MODIFIKATOREN.length - 1))].id;
   }
   BS.MODIFIKATOREN = MODIFIKATOREN; BS.modifikator = modifikator; BS.modifikatorHeute = modifikatorHeute;
+
+  // ---------- Schuljahr-Pass: alle 28 Tage eine neue Saison, 30 Stufen à 100 Pass-Punkte ----------
+  var PASS_TAGE = 28, PASS_STUFEN = 30, PASS_PUNKTE = 100, GOLD_PREIS = 1200;
+  var SAISON_NAMEN = ['Erste Schulwoche', 'Herbstferien', 'Klassenfahrt', 'Winterzauber', 'Projektwoche', 'Sportfest', 'Abschlussball', 'Sommerhitze'];
+  function saison(tag) {
+    tag = tag === undefined ? tagNummer() : tag;
+    var nr = Math.floor(tag / PASS_TAGE), rest = PASS_TAGE - (tag % PASS_TAGE);
+    return { nr: nr, name: 'Saison ' + Math.max(1, nr - 740) + ': ' + SAISON_NAMEN[nr % SAISON_NAMEN.length], restTage: rest };
+  }
+  // Belohnung je Stufe: frei und Gold
+  function passBelohnung(stufe, gold) {
+    if (gold) {
+      if (stufe === 30) return { art: 'skin', wert: 'damon/abschlussball' };
+      if (stufe === 15) return { art: 'skin', wert: 'ecki/goldsprint' };
+      if (stufe % 10 === 0) return { art: 'truhe', wert: 'koffer' };
+      if (stufe % 5 === 0) return { art: 'truhe', wert: 'rucksack' };
+      if (stufe === 8 || stufe === 22) return { art: 'emote', wert: stufe === 8 ? 'chill' : 'yalla' };
+      return { art: 'muenzen', wert: 60 + stufe * 4 };
+    }
+    if (stufe % 10 === 0) return { art: 'truhe', wert: 'rucksack' };
+    if (stufe % 3 === 0) return { art: 'truhe', wert: 'tasche' };
+    return { art: 'muenzen', wert: 25 + stufe * 2 };
+  }
+
+  BS.saison = saison; BS.passBelohnung = passBelohnung;
+  BS.PASS = { stufen: PASS_STUFEN, punkte: PASS_PUNKTE, goldPreis: GOLD_PREIS };
 
   BS.SKINS = SKINS; BS.skin = skin; BS.umfaerben = umfaerben;
   BS.AUSRUESTUNG = AUSRUESTUNG; BS.teil = teil;

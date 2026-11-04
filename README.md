@@ -39,6 +39,11 @@ Modifikatoren: Super-Turbo, Heilpilze, Meteoritenschauer, Energydrink.
 
 ## Fortschritt
 
+**Schuljahr-Pass:** Alle 28 Tage eine neue Saison mit 30 Stufen. Pass-Punkte gibt es für jede Runde und jede Tagesaufgabe;
+die Gratis-Spur ist frei, die Gold-Spur kostet 1200 Münzen und hat exklusive Skins (Damon „Abschlussball“, Ecki „Goldmedaille“).
+**Seltenheiten:** Selten, Super-selten, Episch, Mythisch, Legendär – nur als Anzeige, alle Kämpfer bleiben frei.
+**Online suchen:** Warteschlange pro Modus, ab 2 echten Spielern geht es nach 6 Sekunden los (sofort, wenn voll).
+
 Das Menü hat Tabs: **Spielen** (Modus, Karte des Tages, Rangspiel, Online), **Kämpfer** (Stufe, Skins, Ausrüstung),
 **Shop** (Truhen, Tagesangebote, Gratis-Geschenk, Emotes), **Aufgaben** (3 Tagesaufgaben) und **Pokal-Weg** (Belohnungen bei Pokal-Stationen).
 Jeder Modus hat mehrere Karten, jeden Tag ist eine andere dran. Im Rangspiel (Team-Modi) geht es von Bronze bis Legende.
