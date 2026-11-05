@@ -133,6 +133,7 @@ function starte(r) {
 
 /* ---------- Online-Suche: Warteschlange pro Modus, nur echte Spieler ---------- */
 const SUCH_MODI = ['sterne', 'kloppe', 'ball', 'huegel', 'tresor', 'kopfgeld', 'royale', 'duo', 'grosskeile', 'eroberung', 'boss', 'wellen'];
+const LOBBY_MS = 30000;
 const schlangen = new Map();   // modus -> [{ c, seit }]
 function ausSchlange(c) {
   if (!c.sucht) return;
@@ -145,8 +146,8 @@ setInterval(() => {
   schlangen.forEach((l, modus) => {
     l = l.filter((e) => e.c.offen && e.c.sucht === modus);
     const max = maxFuer(modus);
-    // Start, wenn der Modus voll ist oder seit dem zweiten Spieler 6 Sekunden vergangen sind
-    while (l.length >= 2 && (l.length >= max || jetzt - l[1].seit >= 6000)) {
+    // Lobby füllt sich: Start, wenn der Modus voll ist oder der Erste schon 30 Sekunden wartet (mind. 2 echte Spieler)
+    while (l.length >= 2 && (l.length >= max || jetzt - l[0].seit >= LOBBY_MS)) {
       const gruppe = l.splice(0, max).map((e) => e.c);
       const r = { code: code(), host: gruppe[0], spieler: gruppe, modus, laeuft: false, regeln: { mod: 'heute', zeit: 1 }, zufall: true };
       raeume.set(r.code, r);
@@ -154,7 +155,9 @@ setInterval(() => {
       starte(r);
     }
     schlangen.set(modus, l);
-    l.forEach((e) => senden(e.c, { t: 'suche', modus, anzahl: l.length, sekunden: Math.round((jetzt - e.seit) / 1000) }));
+    const plaetze = l.slice(0, max).map((e) => ({ name: e.c.name, kaempfer: e.c.kaempfer, skin: e.c.skin, rang: e.c.rang || 1, id: e.c.id }));
+    const rest = l.length >= 2 ? Math.max(0, Math.ceil((LOBBY_MS - (jetzt - l[0].seit)) / 1000)) : null;
+    l.forEach((e) => senden(e.c, { t: 'suche', modus, anzahl: l.length, max, rest, plaetze, sekunden: Math.round((jetzt - e.seit) / 1000) }));
   });
 }, 1000);
 

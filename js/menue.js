@@ -249,7 +249,7 @@
       var such = el('div', 'suchbox');
       var sm = modusVon(modus), suchbar = !sm.training;
       such.appendChild(el('b', '', '🌍 Online suchen'));
-      such.appendChild(el('small', '', suchbar ? 'Spiel ' + sm.name + ' mit allen, die gerade auch suchen – nur echte Leute, keine Bots. Ab 2 Spielern geht es los.' : 'Wähl zuerst einen Online-Modus (nicht Trainingsplatz).'));
+      such.appendChild(el('small', '', suchbar ? 'Spiel ' + sm.name + ' mit allen, die gerade auch suchen – nur echte Leute, keine Bots. Die Lobby füllt sich bis zu 30 Sekunden lang, wenn sie voll ist, geht es sofort los.' : 'Wähl zuerst einen Online-Modus (nicht Trainingsplatz).'));
       var sk = knopf('Suchen: ' + sm.icon + ' ' + sm.name, 'gelb', function () { sucheStarten(modus); });
       sk.disabled = !suchbar; such.appendChild(sk);
       seite.insertBefore(such, box);
@@ -332,6 +332,32 @@
     b.appendChild(knopf('Abbrechen', 'rot', function () { Netz.senden({ t: 'suche_stopp' }); suchEl.hidden = true; letzteSuche = ''; }));
     suchEl.appendChild(b); suchEl.hidden = false;
   }
+  // Lobby der Online-Suche: Plätze füllen sich mit echten Spielern, Countdown bis zum Start
+  function lobbyZeigen(o) {
+    var mm = modusVon(o.modus), max = o.max || 6, pl = o.plaetze || [];
+    suchEl.innerHTML = '';
+    var b = el('div', 'suchkasten lobbykasten');
+    b.appendChild(el('b', '', mm.icon + ' ' + mm.name));
+    var info = o.anzahl < 2 ? 'Warte auf Mitspieler … (' + o.sekunden + ' s)'
+      : o.anzahl >= max ? 'Lobby voll – los geht’s!' : 'Lobby füllt sich – Start in ' + o.rest + ' s (sofort, wenn voll)';
+    b.appendChild(el('small', '', info));
+    if (o.rest !== null && o.rest !== undefined) { var cb = el('i', 'lobbybar'), cf = el('b'); cf.style.width = Math.round((30 - o.rest) / 30 * 100) + '%'; cb.appendChild(cf); b.appendChild(cb); }
+    var g = el('div', 'lobbyplaetze');
+    for (var i = 0; i < max; i++) {
+      var sp = pl[i], c = el('div', 'lobbyplatz' + (sp ? ' voll' : '') + (sp && sp.id === Netz.ich ? ' ich' : ''));
+      if (mm.team && !mm.koop) c.classList.add(i % 2 ? 'rot' : 'blau');
+      if (sp) {
+        c.appendChild(bild(BS.kaempfer(sp.kaempfer), 'normal', sp.skin));
+        c.appendChild(el('b', '', sp.id === Netz.ich ? 'Du' : sp.name));
+        var r = BS.kaempferRang(BS.RANG_POKALE[(sp.rang || 1) - 1]); var ra = el('span', 'rangabzeichen klein', String(sp.rang || 1)); ra.style.setProperty('--rf', r.farbe); c.appendChild(ra);
+      } else { c.appendChild(el('span', 'leer', '?')); c.appendChild(el('small', '', 'frei')); }
+      g.appendChild(c);
+    }
+    b.appendChild(g);
+    b.appendChild(el('small', 'hinweis', o.anzahl + ' / ' + max + ' Spieler · nur echte Leute, keine Bots'));
+    b.appendChild(knopf('Abbrechen', 'rot', function () { Netz.senden({ t: 'suche_stopp' }); suchEl.hidden = true; letzteSuche = ''; }));
+    suchEl.appendChild(b); suchEl.hidden = false;
+  }
   function sucheStarten(m) {
     if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; screen = 'freunde'; menue.hidden = false; ergebnis.hidden = true; aufbauen(); return; }
     letzteSuche = m;
@@ -360,11 +386,7 @@
     }
     if (o.t === 'einladung') { if (!imSpiel) einladungZeigen(o); return; }
     if (o.t === 'eingeladen') { onlineStatus = 'Einladung an ' + o.an + ' geschickt – du bist jetzt im Raum.'; screen = 'freunde'; if (!imSpiel) aufbauen(); return; }
-    if (o.t === 'suche') {
-      var mm = modusVon(o.modus);
-      sucheZeigen('Suche Spieler für ' + mm.name + ' …', o.anzahl < 2 ? 'Noch niemand da – warte auf einen zweiten Spieler (' + o.sekunden + ' s).' : o.anzahl + ' Spieler gefunden – gleich geht es los!');
-      return;
-    }
+    if (o.t === 'suche') { lobbyZeigen(o); return; }
     if (o.t === 'gefunden' || o.t === 'suche_aus') { suchEl.hidden = true; return; }
     if (o.t === 'raum_zu') { online = null; return; }
     if (o.t === 'lobby') {
