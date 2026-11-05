@@ -195,6 +195,31 @@
     return { art: 'muenzen', wert: 25 + stufe * 2 };
   }
 
+  // ---------- Kämpfer-Ränge: jeder Kämpfer steigt mit seinen eigenen Pokalen auf (Rang 1–30) ----------
+  var RANG_POKALE = [0, 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, 180, 220, 260, 300, 340, 380, 420, 460, 500,
+    550, 600, 650, 700, 750, 800, 900, 1000, 1100, 1250];
+  var RANG_STUFEN = [
+    { bis: 4, name: 'Holz', farbe: '#a8743a' }, { bis: 9, name: 'Bronze', farbe: '#d88a4a' }, { bis: 14, name: 'Silber', farbe: '#c8d4e0' },
+    { bis: 19, name: 'Gold', farbe: '#ffd23f' }, { bis: 24, name: 'Diamant', farbe: '#7ae8ff' }, { bis: 29, name: 'Meister', farbe: '#e85aff' },
+    { bis: 30, name: 'Legende', farbe: '#ff5a5a' }
+  ];
+  function kaempferRang(pokale) {
+    pokale = pokale || 0;
+    var nr = 1;
+    for (var i = 0; i < RANG_POKALE.length; i++) if (pokale >= RANG_POKALE[i]) nr = i + 1;
+    var st = RANG_STUFEN.filter(function (x) { return nr <= x.bis; })[0];
+    var von = RANG_POKALE[nr - 1], bis = nr < RANG_POKALE.length ? RANG_POKALE[nr] : null;
+    return { nr: nr, stufe: st.name, farbe: st.farbe, von: von, bis: bis, anteil: bis ? (pokale - von) / (bis - von) : 1 };
+  }
+  // Belohnung, wenn ein Kämpfer zum ersten Mal einen Rang erreicht
+  function rangBelohnung(nr) {
+    if (nr === 30) return { art: 'truhe', wert: 'koffer' };
+    if (nr % 10 === 0) return { art: 'truhe', wert: nr === 10 ? 'rucksack' : 'koffer' };
+    if (nr % 5 === 0) return { art: 'truhe', wert: 'tasche' };
+    return { art: 'muenzen', wert: 20 + nr * 8 };
+  }
+  BS.kaempferRang = kaempferRang; BS.rangBelohnung = rangBelohnung; BS.RANG_POKALE = RANG_POKALE;
+
   BS.saison = saison; BS.passBelohnung = passBelohnung;
   BS.PASS = { stufen: PASS_STUFEN, punkte: PASS_PUNKTE, goldPreis: GOLD_PREIS };
 

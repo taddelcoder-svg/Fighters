@@ -55,6 +55,8 @@ Jeder Kämpfer hat zwei Tricks und zwei Talente zur Auswahl.
 
 **Schuljahr-Pass:** Alle 28 Tage eine neue Saison mit 30 Stufen. Pass-Punkte gibt es für jede Runde und jede Tagesaufgabe;
 die Gratis-Spur ist frei, die Gold-Spur kostet 1200 Münzen und hat exklusive Skins (Damon „Abschlussball“, Ecki „Goldmedaille“).
+**Kämpfer-Ränge:** Jeder Kämpfer steigt mit seinen eigenen Pokalen von Rang 1 bis 30 auf (Holz, Bronze, Silber, Gold, Diamant, Meister, Legende);
+jeder neue Rang bringt einmalig Münzen oder eine Truhe.
 **Seltenheiten:** Selten, Super-selten, Episch, Mythisch, Legendär – nur als Anzeige, alle Kämpfer bleiben frei.
 **Online suchen:** Warteschlange pro Modus, ab 2 echten Spielern geht es nach 6 Sekunden los (sofort, wenn voll).
 

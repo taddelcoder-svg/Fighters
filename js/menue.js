@@ -23,6 +23,12 @@
   konto.stats = konto.stats || { runden: 0, siege: 0, kos: 0, schaden: 0, tore: 0, supers: 0, mvp: 0, proKaempfer: {} };
   konto.freunde = konto.freunde || [];
   konto.avatar = konto.avatar || '';
+  konto.kRang = konto.kRang || {};      // höchster Kämpfer-Rang, für den es schon eine Belohnung gab
+  BS.KAEMPFER.forEach(function (k) { if (!konto.kRang[k.id]) konto.kRang[k.id] = BS.kaempferRang(pokale[k.id] || 0).nr; });
+  function rangAbzeichen(kid, klasse) {
+    var r = BS.kaempferRang(pokale[kid] || 0), a = el('span', 'rangabzeichen ' + (klasse || ''), String(r.nr));
+    a.style.setProperty('--rf', r.farbe); a.title = 'Rang ' + r.nr + ' · ' + r.stufe; return a;
+  }
   // Alte Pokale vom Doppel-Kämpfer gehen an Damon und Moritz
   if (pokale.doppeldate) { pokale.damon = (pokale.damon || 0) + pokale.doppeldate; pokale.moritz = (pokale.moritz || 0) + pokale.doppeldate; delete pokale.doppeldate; }
 
@@ -133,7 +139,8 @@
     podest.appendChild(fig); heldEl.appendChild(podest);
     var schild = el('div', 'namensschild');
     schild.appendChild(el('span', 'stufenkreis', String(stufe(wahl))));
-    var nt = el('span', 'nt'); nt.appendChild(el('b', '', d.name)); nt.appendChild(el('small', '', '🏆 ' + (pokale[wahl] || 0) + (skinVon(wahl) ? ' · ' + BS.skin(wahl, skinVon(wahl)).name : ' · ' + d.titel)));
+    schild.appendChild(rangAbzeichen(wahl, 'mittel'));
+    var nt = el('span', 'nt'); nt.appendChild(el('b', '', d.name)); nt.appendChild(el('small', '', 'Rang ' + BS.kaempferRang(pokale[wahl] || 0).nr + ' · 🏆 ' + (pokale[wahl] || 0) + (skinVon(wahl) ? ' · ' + BS.skin(wahl, skinVon(wahl)).name : ' · ' + d.titel)));
     schild.appendChild(nt);
     heldEl.appendChild(schild);
     // Modus-Banner
@@ -275,7 +282,7 @@
       var d = BS.kaempfer(sp.kaempfer);
       li.appendChild(bild(d, 'normal', sp.skin));
       li.appendChild(el('span', '', (sp.id === online.host ? '👑 ' : '') + sp.name + (sp.id === Netz.ich ? ' (du)' : '')));
-      li.appendChild(el('span', 'klein', d.name + ' · St. ' + (sp.stufe || 1)));
+      li.appendChild(el('span', 'klein', d.name + ' · St. ' + (sp.stufe || 1) + (sp.rang ? ' · Rang ' + sp.rang : '')));
       if (m.koop) li.appendChild(el('span', 'tm t0', 'Team'));
       else if (m.team) li.appendChild(el('span', 'tm t' + (i % 2), i % 2 ? 'Rot' : 'Blau'));
       else if (m.id === 'duo') li.appendChild(el('span', 'tm t' + (Math.floor(i / 2) % 2), 'Duo ' + (Math.floor(i / 2) + 1)));
@@ -306,7 +313,7 @@
     if (onlineStatus) box.appendChild(el('p', 'status', onlineStatus));
     box.appendChild(knopf(istHost() ? 'Zurück und START drücken' : 'Zurück zum Start', 'gelb', function () { oeffnen(''); }));
   }
-  function meineDaten() { var w = wahlVon(wahl); return { kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), trickWahl: w.trick, talentWahl: w.talent }; }
+  function meineDaten() { var w = wahlVon(wahl); return { rang: BS.kaempferRang(pokale[wahl] || 0).nr, kaempfer: wahl, stufe: stufe(wahl), skin: skinVon(wahl), ausruestung: teileVon(wahl), trickWahl: w.trick, talentWahl: w.talent }; }
   function verbinden(nachricht) {
     letzteSuche = '';
     if (!meinName || meinName.length < 2) { onlineStatus = 'Gib zuerst deinen Namen ein (mind. 2 Zeichen).'; aufbauen(); return; }
@@ -402,7 +409,7 @@
       b.classList.add('mitselten');
       b.appendChild(el('div', 'name', def.name));
       b.appendChild(el('div', 'seltenheit', def.seltenheit.name));
-      b.appendChild(el('div', 'pok', '🏆 ' + (pokale[def.id] || 0)));
+      var pz = el('div', 'pok'); pz.appendChild(rangAbzeichen(def.id, 'klein')); pz.appendChild(document.createTextNode(' 🏆 ' + (pokale[def.id] || 0))); b.appendChild(pz);
       b.appendChild(el('div', 'stufe', 'St. ' + stufe(def.id)));
       b.addEventListener('click', function () { wahl = def.id; Pixel.set(K_WAHL, wahl); klick(); wahlMelden(); aufbauen(); });
       liste.appendChild(b);
@@ -448,6 +455,17 @@
     zeile('Ultra:', 'Nach vollem Super lädt sich eine lila Leiste. Dann 5 Sekunden schneller, stärker und zäher.' + (sd < BS.ULTRA_AB ? ' 🔒 ab Stufe ' + BS.ULTRA_AB : ''), sd < BS.ULTRA_AB);
 
     var x = el('div', 'extras');
+    var kr = BS.kaempferRang(pokale[d.id] || 0);
+    var rz = el('div', 'kaempferrang');
+    rz.appendChild(rangAbzeichen(d.id, 'gross'));
+    var rt = el('div', 'krt');
+    var rn = el('b', '', 'Rang ' + kr.nr + ' · ' + kr.stufe); rn.style.color = kr.farbe; rt.appendChild(rn);
+    var rb = el('i', 'krbar'), rf = el('b'); rf.style.width = Math.round(kr.anteil * 100) + '%'; rf.style.background = kr.farbe; rb.appendChild(rf); rt.appendChild(rb);
+    if (kr.bis) {
+      var nb = BS.rangBelohnung(kr.nr + 1), nt0 = wegText(nb);
+      rt.appendChild(el('small', '', (pokale[d.id] || 0) + ' / ' + kr.bis + ' 🏆 bis Rang ' + (kr.nr + 1) + ' · Belohnung: ' + nt0.icon + ' ' + nt0.text));
+    } else rt.appendChild(el('small', '', 'Höchster Rang erreicht – Legende!'));
+    rz.appendChild(rt); t.appendChild(rz);
     var stp = el('p', 'ab'); stp.appendChild(el('b', '', 'Stufe ' + sd + '/' + BS.MAX_STUFE));
     stp.appendChild(document.createTextNode(' · ' + Math.round(d.hp * f) + ' Leben · ' + Math.round(f * 100) + ' % Schaden'));
     x.appendChild(stp);
@@ -876,6 +894,14 @@
         var rn = BS.rang(konto.rang);
         rangText = '◆ ' + rn.name + ': ' + rv + ' → ' + konto.rang + ' Rangpunkte';
         if (rn.i > rangVorher && rn.i > konto.rangHoch) { konto.rangHoch = rn.i; var lohn = 80 + rn.i * 20; gewinn += lohn; extra.push('Neuer Rang ' + rn.name + '! +' + lohn + ' 🪙'); }
+      }
+      var krNeu = BS.kaempferRang(pokale[wahl] || 0).nr, krAlt = konto.kRang[wahl] || 1;
+      if (krNeu > krAlt) {
+        for (var rr = krAlt + 1; rr <= krNeu; rr++) {
+          var rbw = BS.rangBelohnung(rr), rtx = wegText(rbw); belohnungGeben(rbw);
+          extra.unshift('🎖 ' + BS.kaempfer(wahl).name + ' erreicht Rang ' + rr + ' (' + BS.kaempferRang(BS.RANG_POKALE[rr - 1]).stufe + ')! ' + rtx.icon + ' ' + rtx.text);
+        }
+        konto.kRang[wahl] = krNeu;
       }
       aufgabenZaehlen(e).forEach(function (a) { extra.push('Aufgabe geschafft: ' + a.text + ' – im Tab „Aufgaben“ abholen!'); });
       muenzen += gewinn;

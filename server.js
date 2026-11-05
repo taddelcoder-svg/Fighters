@@ -108,7 +108,7 @@ function code() {
 }
 function lobby(r) {
   const o = { t: 'lobby', code: r.code, host: r.host.id, modus: r.modus, laeuft: r.laeuft, regeln: r.regeln,
-    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe, skin: c.skin })) };
+    spieler: r.spieler.map((c) => ({ id: c.id, name: c.name, kaempfer: c.kaempfer, stufe: c.stufe, skin: c.skin, rang: c.rang })) };
   r.spieler.forEach((c) => senden(c, o));
 }
 function verlassen(c) {
@@ -171,7 +171,7 @@ function nachricht(c, o) {
   switch (o.t) {
     case 'erstellen': {
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); c.rang = Math.max(1, Math.min(30, Math.round(+o.rang || 1)));
       const neu = { code: code(), host: c, spieler: [c], modus: sauber(o.modus, 12), laeuft: false, regeln: { mod: 'heute', zeit: 1 } };
       raeume.set(neu.code, neu); c.raum = neu;
       senden(c, { t: 'du', id: c.id });
@@ -184,7 +184,7 @@ function nachricht(c, o) {
       if (ziel.laeuft) return senden(c, { t: 'fehler', text: 'Dort läuft gerade eine Runde – gleich nochmal versuchen.' });
       if (ziel.spieler.length >= MAX_SPIELER) return senden(c, { t: 'fehler', text: 'Der Raum ist voll.' });
       verlassen(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); c.rang = Math.max(1, Math.min(30, Math.round(+o.rang || 1)));
       ziel.spieler.push(c); c.raum = ziel;
       senden(c, { t: 'du', id: c.id });
       lobby(ziel);
@@ -221,7 +221,7 @@ function nachricht(c, o) {
     case 'suchen': {
       if (SUCH_MODI.indexOf(o.modus) < 0) return senden(c, { t: 'fehler', text: 'Diesen Modus gibt es online nicht.' });
       verlassen(c); ausSchlange(c);
-      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl);
+      c.name = sauber(o.name, 16); c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); c.rang = Math.max(1, Math.min(30, Math.round(+o.rang || 1)));
       c.sucht = o.modus;
       if (!schlangen.has(o.modus)) schlangen.set(o.modus, []);
       schlangen.get(o.modus).push({ c, seit: Date.now() });
@@ -229,7 +229,7 @@ function nachricht(c, o) {
       break;
     }
     case 'suche_stopp': ausSchlange(c); senden(c, { t: 'suche_aus' }); break;
-    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); lobby(r); } break;
+    case 'wahl': if (r) { c.kaempfer = sauber(o.kaempfer, 20); c.stufe = stufeVon(o.stufe); c.skin = String(o.skin || '').slice(0, 20); c.ausruestung = teileVon(o.ausruestung); c.trickWahl = wahlVon(o.trickWahl); c.talentWahl = wahlVon(o.talentWahl); c.rang = Math.max(1, Math.min(30, Math.round(+o.rang || 1))); lobby(r); } break;
     case 'modus': if (r && r.host === c && !r.laeuft) { r.modus = sauber(o.modus, 12); lobby(r); } break;
     case 'regeln': if (r && r.host === c && !r.laeuft) {
       const z = +o.zeit; r.regeln = { mod: sauber(o.mod, 16), zeit: z === 0.7 || z === 1.4 ? z : 1 }; lobby(r);
