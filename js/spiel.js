@@ -207,9 +207,18 @@
         k.name = m.name; k.mensch = m.id;
         if (m.id === netz.ich) spieler = k; else { k.ki = null; k.eingabe = { mx: 0, my: 0, b: 0 }; }
       };
-      // Online spielen nur Menschen – keine Bots
-      if (team) netz.spieler.forEach(function (m) { mensch(m, koop ? 0 : m.team); });
-      else netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
+      // Echte Spieler zuerst, freie Plätze füllen Bots
+      if (team) {
+        netz.spieler.forEach(function (m) { mensch(m, koop ? 0 : m.team); });
+        var proTeam = gross ? 5 : 3;
+        [0, 1].forEach(function (tm) {
+          if (koop && tm === 1) return;
+          for (var n = kaempfer.filter(function (k) { return k.team === tm; }).length; n < proTeam; n++) bot(botPool[bi++ % botPool.length], tm, schnitt);
+        });
+      } else {
+        netz.spieler.forEach(function (m, i) { mensch(m, duo ? Math.floor(i / 2) : i); });
+        for (var i3 = netz.spieler.length; i3 < 8; i3++) bot(botPool[bi++ % botPool.length], duo ? Math.floor(i3 / 2) : i3, schnitt);
+      }
     } else if (training) {
       spieler = neuerKaempfer(BS.kaempfer(opt.kaempfer), 0, true, opt.stufe, opt);
       for (var gt = 0; gt < 3; gt++) {
@@ -1366,9 +1375,9 @@
     function menschVon(id) { for (var i = 0; i < kaempfer.length; i++) if (kaempfer[i].mensch === id && kaempfer[i] !== spieler) return kaempfer[i]; return null; }
     // Wer online geht oder aufgibt, verschwindet aus der Runde
     function zumBot(k) {
-      if (!k.tot) sterben(k, null);
-      k.eingabe = null; k.ki = null; k.mensch = 0; k.weg = true; k.respawn = 1e9;
-      zahl({ x: k.x, y: k.y - 50, t: -0.3, text: (k.name || k.def.name) + ' ist weg', farbe: '#bbb' });
+      k.eingabe = null; k.ki = neueKi(); k.mensch = 0;
+      zahl({ x: k.x, y: k.y - 50, t: -0.3, text: (k.name || k.def.name) + ' ist weg – ein Bot übernimmt', farbe: '#bbb' });
+      k.name = (k.name || k.def.name) + ' (Bot)';
     }
     if (netz) Netz.spiel = function (o) {
       if (host) {

@@ -160,7 +160,7 @@
     // Spielen-Knopf
     losKnopf.disabled = false; losKnopf.className = 'spielenknopf';
     if (online) {
-      if (istHost()) { losKnopf.textContent = 'START'; losKnopf.disabled = online.spieler.length < 2 || online.spieler.length > (m.gross ? 10 : m.team ? 6 : 8); }
+      if (istHost()) { losKnopf.textContent = 'START'; losKnopf.disabled = online.spieler.length > (m.gross ? 10 : m.team ? 6 : 8); }
       else { losKnopf.textContent = online.laeuft ? 'LÄUFT …' : 'WARTEN …'; losKnopf.disabled = true; }
     } else losKnopf.textContent = 'SPIELEN';
   }
@@ -209,7 +209,7 @@
       opt.appendChild(rb);
       seite.appendChild(opt);
       seite.appendChild(el('p', 'hilfe', rangspiel ? 'Rangspiel: nur Team-Modi, starke Bots, Sieg +20 / Niederlage −12 Rangpunkte, jeder neue Rang bringt Münzen.' : 'Neue Karten und Modifikatoren in ' + bisMorgen() + '.'));
-    } else seite.appendChild(el('p', 'hilfe', gesperrt ? 'Nur der Host wählt den Modus.' : 'Online spielen nur echte Leute – keine Bots.'));
+    } else seite.appendChild(el('p', 'hilfe', gesperrt ? 'Nur der Host wählt den Modus.' : 'Freie Plätze übernehmen Bots.'));
 
     var gitter = el('div', 'events');
     BS.MODI.forEach(function (m) {
@@ -249,7 +249,7 @@
       var such = el('div', 'suchbox');
       var sm = modusVon(modus), suchbar = !sm.training;
       such.appendChild(el('b', '', '🌍 Online suchen'));
-      such.appendChild(el('small', '', suchbar ? 'Spiel ' + sm.name + ' mit allen, die gerade auch suchen – nur echte Leute, keine Bots. Die Lobby füllt sich bis zu 30 Sekunden lang, wenn sie voll ist, geht es sofort los.' : 'Wähl zuerst einen Online-Modus (nicht Trainingsplatz).'));
+      such.appendChild(el('small', '', suchbar ? 'Spiel ' + sm.name + ' mit allen, die gerade auch suchen – nur echte Leute, bis zu 30 Sekunden wird auf echte Leute gewartet, freie Plätze füllen dann Bots.' : 'Wähl zuerst einen Online-Modus (nicht Trainingsplatz).'));
       var sk = knopf('Suchen: ' + sm.icon + ' ' + sm.name, 'gelb', function () { sucheStarten(modus); });
       sk.disabled = !suchbar; such.appendChild(sk);
       seite.insertBefore(such, box);
@@ -290,7 +290,7 @@
     });
     box.appendChild(ul);
     var plaetze = m.gross ? 10 : m.team ? 6 : 8;
-    box.appendChild(el('p', 'tipp', online.spieler.length + ' von ' + plaetze + ' Plätzen · ' + (online.spieler.length < 2 ? 'Warte auf mindestens einen Freund.' : 'Keine Bots – nur ihr.')));
+    box.appendChild(el('p', 'tipp', online.spieler.length + ' von ' + plaetze + ' Plätzen · ' + 'Freie Plätze füllen Bots.'));
     // Raumregeln (nur Host ändert sie)
     var rg = online.regeln || { mod: 'heute', zeit: 1 };
     var regeln = el('div', 'optionen');
@@ -338,7 +338,7 @@
     suchEl.innerHTML = '';
     var b = el('div', 'suchkasten lobbykasten');
     b.appendChild(el('b', '', mm.icon + ' ' + mm.name));
-    var info = o.anzahl < 2 ? 'Warte auf Mitspieler … (' + o.sekunden + ' s)'
+    var info = o.anzahl < 2 ? 'Warte auf Mitspieler – Start in ' + o.rest + ' s'
       : o.anzahl >= max ? 'Lobby voll – los geht’s!' : 'Lobby füllt sich – Start in ' + o.rest + ' s (sofort, wenn voll)';
     b.appendChild(el('small', '', info));
     if (o.rest !== null && o.rest !== undefined) { var cb = el('i', 'lobbybar'), cf = el('b'); cf.style.width = Math.round((30 - o.rest) / 30 * 100) + '%'; cb.appendChild(cf); b.appendChild(cb); }
@@ -354,7 +354,7 @@
       g.appendChild(c);
     }
     b.appendChild(g);
-    b.appendChild(el('small', 'hinweis', o.anzahl + ' / ' + max + ' Spieler · nur echte Leute, keine Bots'));
+    b.appendChild(el('small', 'hinweis', o.anzahl + ' / ' + max + ' Spieler · freie Plätze übernehmen Bots'));
     b.appendChild(knopf('Abbrechen', 'rot', function () { Netz.senden({ t: 'suche_stopp' }); suchEl.hidden = true; letzteSuche = ''; }));
     suchEl.appendChild(b); suchEl.hidden = false;
   }

@@ -147,7 +147,7 @@ setInterval(() => {
     l = l.filter((e) => e.c.offen && e.c.sucht === modus);
     const max = maxFuer(modus);
     // Lobby füllt sich: Start, wenn der Modus voll ist oder der Erste schon 30 Sekunden wartet (mind. 2 echte Spieler)
-    while (l.length >= 2 && (l.length >= max || jetzt - l[0].seit >= LOBBY_MS)) {
+    while (l.length >= 1 && (l.length >= max || jetzt - l[0].seit >= LOBBY_MS)) {   // nach 30 s auch allein – freie Plätze füllen Bots
       const gruppe = l.splice(0, max).map((e) => e.c);
       const r = { code: code(), host: gruppe[0], spieler: gruppe, modus, laeuft: false, regeln: { mod: 'heute', zeit: 1 }, zufall: true };
       raeume.set(r.code, r);
@@ -156,7 +156,7 @@ setInterval(() => {
     }
     schlangen.set(modus, l);
     const plaetze = l.slice(0, max).map((e) => ({ name: e.c.name, kaempfer: e.c.kaempfer, skin: e.c.skin, rang: e.c.rang || 1, id: e.c.id }));
-    const rest = l.length >= 2 ? Math.max(0, Math.ceil((LOBBY_MS - (jetzt - l[0].seit)) / 1000)) : null;
+    const rest = l.length >= 1 ? Math.max(0, Math.ceil((LOBBY_MS - (jetzt - l[0].seit)) / 1000)) : null;
     l.forEach((e) => senden(e.c, { t: 'suche', modus, anzahl: l.length, max, rest, plaetze, sekunden: Math.round((jetzt - e.seit) / 1000) }));
   });
 }, 1000);
@@ -240,7 +240,6 @@ function nachricht(c, o) {
     case 'start': {
       if (!r || r.host !== c || r.laeuft) return;
       if (r.modus === 'training') return senden(c, { t: 'fehler', text: 'Der Trainingsplatz geht nur allein.' });
-      if (r.spieler.length < 2) return senden(c, { t: 'fehler', text: 'Online spielen nur echte Leute – warte, bis mindestens ein Freund im Raum ist.' });
       if (r.spieler.length > maxFuer(r.modus)) return senden(c, { t: 'fehler', text: 'In diesem Modus passen höchstens ' + maxFuer(r.modus) + ' Leute rein.' });
       starte(r);
       break;
