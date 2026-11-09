@@ -87,6 +87,7 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 | Saro | Gold-Schrot | Aura-Mog – betäubt alle in der Nähe |
 | Matti | 3 Anmach-Sprüche | Korbstapel – Riesenkorb rollt durch alle Gegner |
 | Sinan | Low Kicks (Nahkampf) | Knie-Sprung – betäubt und schleudert weg |
+| Paul | Zunge raus (trifft alle in einer Linie) | Zungenwirbel – trifft alle in der Nähe dreimal und zieht sie heran |
 
 ## Aufbau
 

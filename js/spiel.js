@@ -593,6 +593,9 @@
             projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(ww) * 520, vy: Math.sin(ww) * 520, weg: 0, max: 6 * T, schaden: 22, r: 9, owner: k, team: k.team, look: 'teller', getroffen: [], w: ww });
           }
           break;
+        case 'zungenwirbel':
+          flaechen.push({ x: k.x, y: k.y, r: 2.8 * T, t: 0, d: 1.5, dps: 40, zug: 160, folgt: k, owner: k, team: k.team, look: 'zunge', tick: 0 });
+          break;
         case 'korbstapel':
           projektile.push({ x: k.x, y: k.y - SH, vx: Math.cos(w) * 480, vy: Math.sin(w) * 480, weg: 0, max: maxD, schaden: 42, r: 20, owner: k, team: k.team,
             look: 'korb', durch: true, getroffen: [], wegstoss: 380, w: w });
@@ -1036,7 +1039,7 @@
         }
         if (k.superLadung >= k.def.superKosten && ki.schussT < 0.3 && Math.random() < (rangspiel ? 1 : ks.super)) {
           var sa = k.def.superArt, sr = (k.def.superReichweite || 0) * T;
-          var ok = (sa === 'moshpit' && d < T * 2.5) || (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
+          var ok = (sa === 'moshpit' && d < T * 2.5) || (sa === 'zungenwirbel' && d < T * 2.8) || (sa === 'aura' && d < T * 3) || (sa === 'dinner' && d < T * 4.5) || (sa === 'hunger' && d < T * 4) ||
             (sa === 'lernnie' && k.hp < k.maxHp * 0.6 && d < reich) || (sa === 'unsichtbar' && d < T * 7) ||
             (sr && d < sr && (sa === 'schwarzesloch' || sa === 'veto' || sa === 'natrium' || sa === 'sandsturm' || frei2));
           if (ok) superZuenden(k, zielW, Math.hypot(px - k.x, py - k.y));
@@ -1727,6 +1730,8 @@
         case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
         case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
         case 'schraube': ctx.fillStyle = '#c8ccd6'; ctx.fillRect(-8, -3, 16, 6); ctx.fillStyle = '#8a8e98'; ctx.fillRect(4, -6, 5, 12); break;
+        case 'zunge': ctx.restore(); ctx.strokeStyle = '#f08a9a'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(p.owner.x, p.owner.y - 24); ctx.lineTo(x2, y2); ctx.stroke();
+          ctx.fillStyle = '#d86a7a'; ctx.beginPath(); ctx.arc(x2, y2, 9, 0, Math.PI * 2); ctx.fill(); ctx.lineCap = 'butt'; return;
         case 'spruch': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1c1430'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.ellipse(0, -2, 11, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(-4, 5); ctx.lineTo(-8, 11); ctx.lineTo(1, 6); ctx.fill();
@@ -1772,6 +1777,11 @@
 
       // Flächen
       flaechen.forEach(function (f) {
+        if (f.look === 'zunge') {
+          ctx.strokeStyle = '#f08a9a'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+          for (var zi2 = 0; zi2 < 2; zi2++) { var zw2 = zeit * 12 + zi2 * Math.PI; ctx.beginPath(); ctx.moveTo(f.x, f.y - 24); ctx.lineTo(f.x + Math.cos(zw2) * f.r, f.y - 24 + Math.sin(zw2) * f.r * 0.7); ctx.stroke(); }
+          ctx.lineCap = 'butt'; return;
+        }
         if (f.look === 'loch') {
           var lg = ctx.createRadialGradient(f.x, f.y, 4, f.x, f.y, f.r);
           lg.addColorStop(0, 'rgba(0,0,0,.95)'); lg.addColorStop(0.35, 'rgba(40,10,80,.75)'); lg.addColorStop(1, 'rgba(90,60,200,0)');
@@ -1947,8 +1957,8 @@
         ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
       } else if (art === 'nah') {
         ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, reich, z.w - a.breite / 2, z.w + a.breite / 2); ctx.closePath(); ctx.fill();
-      } else if (art === 'aura' || art === 'moshpit' || art === 'dinner' || art === 'hunger' || art === 'unsichtbar' || art === 'lernnie') {
-        ctx.beginPath(); ctx.arc(spieler.x, spieler.y, art === 'aura' ? 3.2 * T : art === 'moshpit' ? 2.2 * T : art === 'dinner' ? 6 * T : T * 1.2, 0, Math.PI * 2); ctx.fill();
+      } else if (art === 'aura' || art === 'moshpit' || art === 'zungenwirbel' || art === 'dinner' || art === 'hunger' || art === 'unsichtbar' || art === 'lernnie') {
+        ctx.beginPath(); ctx.arc(spieler.x, spieler.y, art === 'aura' ? 3.2 * T : art === 'moshpit' ? 2.2 * T : art === 'zungenwirbel' ? 2.8 * T : art === 'dinner' ? 6 * T : T * 1.2, 0, Math.PI * 2); ctx.fill();
       } else {
         var breite = istSuper ? 24 : Math.max(16, (a.radius || 8) * 2) + (a.streuung ? 0 : 0);
         ctx.save(); ctx.translate(ox, oy); ctx.rotate(z.w);

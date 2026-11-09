@@ -57,6 +57,10 @@
       { id: 'blau', name: 'Blaue Ecke', preis: 200, farben: { '#d02a2a': '#2a6ad8', '#141418': '#1e2a5a' } },
       { id: 'champion', name: 'Champion', preis: 400, selten: true, farben: { '#d02a2a': '#ffd23f', '#141418': '#2a1a08', '#2a2a32': '#4a3010' } }
     ],
+    paul: [
+      { id: 'weiss', name: 'Winter-Beanie', preis: 200, farben: { '#18181c': '#e8e8f0', '#2e2e36': '#c8c8d4', '#1a1a20': '#3a6ad8', '#2c2c36': '#2a4aa8' } },
+      { id: 'erdbeer', name: 'Erdbeer-Look', preis: 400, selten: true, farben: { '#18181c': '#e8343f', '#2e2e36': '#a81e2a', '#1a1a20': '#ff8aa0', '#2c2c36': '#e86a80' } }
+    ],
     saro: [
       { id: 'gold', name: 'Goldader', preis: 300, farben: { '#1c2238': '#b8902a', '#2e3654': '#e0b84a' } },
       { id: 'nacht', name: 'Frankfurt bei Nacht', preis: 400, selten: true, farben: { '#1c2238': '#141418', '#2e3654': '#2a2a32', '#e8d040': '#ff5a8a' } }

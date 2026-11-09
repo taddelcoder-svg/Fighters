@@ -128,6 +128,15 @@
       superText: 'Knie-Sprung – springt mit dem Knie voran nach vorn, betäubt und schleudert alle weg, die er trifft.'
     },
     {
+      id: 'paul', name: 'Paul', titel: 'Zunge raus!', rolle: 'Kontrolle', farbe: '#f08a9a',
+      sprite: function (m) { return Sprites.paul(m === 'super' ? 'zunge' : m === 'tot' ? 'scharf' : 'happy'); },
+      hp: 125, tempo: NORMAL, laden: 1.1, superKosten: 100,
+      angriff: { art: 'schuss', anzahl: 1, streuung: 0, tempo: 820, reichweite: 6.5, schaden: 30, radius: 10, look: 'zunge', durch: true },
+      angriffText: 'Schnellt die Zunge raus – trifft alle in einer Linie.',
+      superArt: 'zungenwirbel', superReichweite: 0,
+      superText: 'Zungenwirbel – wirbelt die Zunge rundherum, trifft alle in der Nähe dreimal und zieht sie heran.'
+    },
+    {
       id: 'saro', name: 'Saro', titel: 'Goldgräber', rolle: 'Nahkampf', farbe: '#ffd23f',
       sprite: function (m) { return Sprites.saro(m === 'super' ? 'cool' : m === 'tot' ? 'schock' : 'stolz'); },
       hp: 140, tempo: SCHNELL, laden: 1.25, superKosten: 110,
@@ -164,6 +173,8 @@
       talent: { tempo: 1.08 }, talentName: 'Klein & flink', talentText: 'Läuft 8 % schneller.' },
     sinan: { trick: 'schild', trickName: 'Deckung', trickText: '1,5 Sekunden unverwundbar.',
       talent: { hp: 1.12 }, talentName: 'Abgehärtet', talentText: '+12 % Leben.' },
+    paul: { trick: 'ring', trickName: 'Gummibärchen', trickText: 'Heilt 35 % Leben.',
+      talent: { schaden: 1.1 }, talentName: 'Extralange Zunge', talentText: '+10 % Schaden.' },
     philipp: { trick: 'spickzettel', trickName: 'Spickzettel', trickText: 'Der nächste Treffer zählt doppelt.',
       talent: { laden: 0.85 }, talentName: 'Streber', talentText: 'Lädt 15 % schneller nach.' },
     saro: { trick: 'goldregen', trickName: 'Goldregen', trickText: '10 Goldnuggets fliegen ringsum.',
@@ -184,6 +195,7 @@
     ecki: { t: ['flasche', 'Kamillentee', 'Heilt 25 % und macht 2 Sekunden schneller.'], a: [{ schaden: 1.1 }, 'Wut im Bauch', '+10 % Schaden.'] },
     matti: { t: ['sprung', 'Abgang', 'Springt 3 Felder nach vorn – schnell weg nach dem Korb.'], a: [{ superF: 1.2 }, 'Stapelweise', 'Super lädt 20 % schneller.'] },
     sinan: { t: ['klopapier', 'Kampfgeist', '3 Sekunden lang 30 % schneller.'], a: [{ schaden: 1.1 }, 'Ellbogen', '+10 % Schaden.'] },
+    paul: { t: ['klopapier', 'Erdbeer-Power', '3 Sekunden lang 30 % schneller.'], a: [{ superF: 1.2 }, 'Chill-Modus', 'Super lädt 20 % schneller.'] },
     philipp: { t: ['schild', 'Krankmeldung', '1,5 Sekunden unverwundbar.'], a: [{ hp: 1.12 }, 'Ausgeschlafen', '+12 % Leben.'] }
   };
   KAEMPFER.forEach(function (k) {
@@ -213,7 +225,7 @@
     { id: 'mythisch', name: 'Mythisch', farbe: '#e83a5a' },
     { id: 'legendaer', name: 'Legendär', farbe: '#ffc828' }
   ];
-  var SELTEN = { matteo: 4, felix: 3, julian: 2, moritz: 2, leon: 1, damon: 1, omar: 0, philipp: 0, timo: 0, mo: 0, ecki: 0, saro: 3, matti: 1, sinan: 2 };
+  var SELTEN = { matteo: 4, felix: 3, julian: 2, moritz: 2, leon: 1, damon: 1, omar: 0, philipp: 0, timo: 0, mo: 0, ecki: 0, saro: 3, matti: 1, sinan: 2, paul: 1 };
   KAEMPFER.forEach(function (k) { k.seltenheit = SELTENHEITEN[SELTEN[k.id] || 0]; k.seltenRang = SELTEN[k.id] || 0; });
   BS_SELTENHEITEN = SELTENHEITEN;
 
