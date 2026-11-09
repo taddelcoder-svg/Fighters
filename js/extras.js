@@ -61,6 +61,10 @@
       { id: 'weiss', name: 'Winter-Beanie', preis: 200, farben: { '#18181c': '#e8e8f0', '#2e2e36': '#c8c8d4', '#1a1a20': '#3a6ad8', '#2c2c36': '#2a4aa8' } },
       { id: 'erdbeer', name: 'Erdbeer-Look', preis: 400, selten: true, farben: { '#18181c': '#e8343f', '#2e2e36': '#a81e2a', '#1a1a20': '#ff8aa0', '#2c2c36': '#e86a80' } }
     ],
+    leonie: [
+      { id: 'gold', name: 'Goldrausch', preis: 250, farben: { '#ff7ac8': '#f8d870', '#ffb8e4': '#fff2b0', '#e83a9a': '#e8b830', '#b82a7a': '#b8881a', '#ffd8f2': '#fff8d0' } },
+      { id: 'disco', name: 'Disco-Diva', preis: 400, selten: true, farben: { '#ff7ac8': '#e8e8f2', '#ffb8e4': '#ffffff', '#e83a9a': '#9a4ae8', '#b82a7a': '#6a2ab8', '#ffd8f2': '#f0d8ff' } }
+    ],
     saro: [
       { id: 'gold', name: 'Goldader', preis: 300, farben: { '#1c2238': '#b8902a', '#2e3654': '#e0b84a' } },
       { id: 'nacht', name: 'Frankfurt bei Nacht', preis: 400, selten: true, farben: { '#1c2238': '#141418', '#2e3654': '#2a2a32', '#e8d040': '#ff5a8a' } }

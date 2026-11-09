@@ -475,6 +475,38 @@
     scharf: { 7: '.FFFFFFFFFFFFFF.', 8: 'FFFWEFFFFFFEWFFF', 9: 'FFFFFFFssFFFFFFF', 10: '.FFFFFFssFFFFFF.', 11: '.FFFFOOOOOOFFFF.', 12: '..FFFFOOOOFFFF..' },
     aua: { 8: 'sSSEESSSSSSEESSs', 11: '.SSSSOOOOOOSSSS.', 12: '..SSSSFFFFSSSS..', 13: '...ssSFFFFSss...', 14: '......FFFF......' }
   };
+  // Leonie Lockenpracht (Drag-Look): riesige Lockenperücke, Wimpern, rote Lippen, Rouge, Glitzerkleid, Ohrringe, High Heels (20 x 32)
+  var LEONIE = [
+    '......hHHhHHhH......', '....hHHHHHHHHHHh....', '...HHHhHHHHHHhHHH...', '..HHHHHHHHHHHHHHHH..', '..HHhHHHHHHHHHHhHH..', '.HHHHHSHHSSHHSHHHHH.',
+    '.HHHSSSSSSSSSSSSHHH.', '.HHSSEESSSSSSEESSHH.', 'HHSSWESSSSSSSSEWSSHH', 'HHSRRSSSSssSSSSRRSHH', 'HHHSSSSSSssSSSSSSHHH', 'HHHSSSSSLLLLSSSSSHHH',
+    'HHHHSSSSSLLSSSSSHHHH', '.HHHHsSSSSSSSSsHHHH.', '.HHHHHYssssssYHHHHH.', '..HHHH.YssssY.HHHH..', '..HHDDDDDssDDDDDHH..', '.SHDDDDGDDDDGDDDDHS.',
+    '.SSDDdDDDDDDDDdDDSS.', '.SSDDdDDGDDGDDdDDSS.', '..SDDDDDDDDDDDDDDS..', '..SSDDDDDDDDDDDDSS..', '...DDDDDGDDDDGDDD...', '...DDDDDDDDDDDDDD...',
+    '..dDDDDDDDDDDDDDDd..', '..dddddddddddddddd..', '.....SSS....SSS.....', '.....SSS....SSS.....', '.....SSS....SSS.....', '.....KKK....KKK.....',
+    '....KKkK....KkKK....', '....K..K....K..K....'
+  ];
+  var LEONIE_OUTFITS = [
+    { H: '#ff7ac8', h: '#ffb8e4', D: '#e83a9a', d: '#b82a7a', G: '#ffd8f2', K: '#e83a9a', k: '#ffb8e4' },   // Pink Glitzer
+    { H: '#f8d870', h: '#fff2b0', D: '#e8b830', d: '#b8881a', G: '#fff8d0', K: '#e8b830', k: '#fff2b0' },   // Goldrausch
+    { H: '#8a6440', h: '#b08a5a', D: '#3a6ae8', d: '#2a4ab8', G: '#d0e0ff', K: '#c8c8d8', k: '#ffffff' },   // Natur-Locke
+    { H: '#e8e8f2', h: '#ffffff', D: '#9a4ae8', d: '#6a2ab8', G: '#f0d8ff', K: '#9a4ae8', k: '#d8b8ff' }    // Disco-Diva
+  ];
+  var LEONIE_BASIS = { S: '#f0c8ae', s: '#d6a68a', E: '#1a0e14', W: '#ffffff', L: '#d81a3a', R: '#f49a9a', Y: '#ffd23f', O: '#5a1020' };
+  function leonieZeilen(pose, gesicht) {
+    var r = LEONIE.map(function (z) { return z.split(''); });
+    function setz(y, x, c) { if (r[y] && x >= 0 && x < 20) r[y][x] = c; }
+    var linksHoch = pose === 'hoch' || pose === 'links', rechtsHoch = pose === 'hoch' || pose === 'rechts';
+    if (linksHoch) { for (var y = 17; y <= 21; y++) for (var x = 0; x <= 2; x++) if (r[y][x] === 'S') setz(y, x, '.'); for (y = 3; y <= 16; y++) setz(y, 1, 'S'); setz(2, 1, 'S'); setz(2, 2, 'S'); setz(17, 2, 'D'); }
+    if (rechtsHoch) { for (y = 17; y <= 21; y++) for (x = 17; x <= 19; x++) if (r[y][x] === 'S') setz(y, x, '.'); for (y = 3; y <= 16; y++) setz(y, 18, 'S'); setz(2, 18, 'S'); setz(2, 17, 'S'); setz(17, 17, 'D'); }
+    if (pose === 'huefte') {
+      for (y = 17; y <= 21; y++) { for (x = 0; x <= 2; x++) if (r[y][x] === 'S') setz(y, x, '.'); for (x = 17; x <= 19; x++) if (r[y][x] === 'S') setz(y, x, '.'); }
+      [[17, 1], [18, 0], [19, 0], [20, 1], [20, 2], [17, 18], [18, 19], [19, 19], [20, 18], [20, 17]].forEach(function (p) { setz(p[0], p[1], 'S'); });
+    }
+    if (gesicht === 'zwinker') { setz(8, 4, 'E'); setz(8, 5, 'E'); setz(7, 5, 'S'); setz(7, 6, 'S'); }
+    if (gesicht === 'oops') { setz(11, 8, 'S'); setz(11, 9, 'O'); setz(11, 10, 'O'); setz(11, 11, 'S'); setz(12, 9, 'O'); setz(12, 10, 'O'); setz(8, 5, 'W'); setz(8, 14, 'W'); }
+    if (gesicht === 'strahl') { setz(11, 8, 'L'); setz(11, 9, 'W'); setz(11, 10, 'W'); setz(11, 11, 'L'); }
+    return r.map(function (z) { return z.join(''); });
+  }
+
   // Robo-Hausmeister (Boss) und Kreideklecks (Monster) – eigene Figuren für Bravo Stars
   function breite(zeilen, b) { return zeilen.map(function (z) { while (z.length < b) z += '.'; return z.slice(0, b); }); }
   var ROBO = breite([
@@ -533,6 +565,11 @@
     paul: function (mood) {
       mood = PAUL_MOODS[mood] ? mood : 'neutral';
       return Pixel.sprite('paul-' + mood, withMood(PAUL, PAUL_MOODS, mood), PAUL_PAL);
+    },
+    leonie: function (outfit, pose, gesicht) {
+      outfit = (outfit || 0) % LEONIE_OUTFITS.length; pose = pose || 'steh'; gesicht = gesicht || 'normal';
+      var pal = {}, k; for (k in LEONIE_BASIS) pal[k] = LEONIE_BASIS[k]; for (k in LEONIE_OUTFITS[outfit]) pal[k] = LEONIE_OUTFITS[outfit][k];
+      return Pixel.sprite('leonie-' + outfit + '-' + pose + '-' + gesicht, leonieZeilen(pose, gesicht), pal);
     },
     robo: function () { return Pixel.sprite('robo', ROBO, ROBO_PAL); },
     klecks: function () { return Pixel.sprite('klecks', KLECKS, KLECKS_PAL); },
