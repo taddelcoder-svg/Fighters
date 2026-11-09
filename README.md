@@ -89,7 +89,7 @@ Ab Stufe 3 hat er einen **Trick** (aktiv, 3× pro Runde, Taste Q), ab Stufe 5 ei
 | Matti | 3 Anmach-Sprüche | Korbstapel – Riesenkorb rollt durch alle Gegner |
 | Sinan | Low Kicks (Nahkampf) | Knie-Sprung – betäubt und schleudert weg |
 | Paul | Zunge raus (trifft alle in einer Linie) | Zungenwirbel – trifft alle in der Nähe dreimal und zieht sie heran |
-| Leonie Lockenpracht | Glitzer-Konfetti im Fächer | Haar-Flip – schleudert alle weg und betäubt kurz |
+| Locken-Leon | Zwei Locken-Bälle (als Leonie: Glitzer-Konfetti) | Showtime! – wird 8 s zu Leonie Lockenpracht, Haar-Flip schleudert alle weg |
 
 ## Aufbau
 

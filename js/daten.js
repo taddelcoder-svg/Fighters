@@ -137,13 +137,15 @@
       superText: 'Zungenwirbel – wirbelt die Zunge rundherum, trifft alle in der Nähe dreimal und zieht sie heran.'
     },
     {
-      id: 'leonie', name: 'Leonie Lockenpracht', titel: 'Queen der Bühne', rolle: 'Kontrolle', farbe: '#ff7ac8', skala: 1.75, radius: 17,
-      sprite: function (m) { return Sprites.leonie(0, m === 'super' ? 'hoch' : 'huefte', m === 'tot' ? 'oops' : m === 'super' ? 'strahl' : 'zwinker'); },
-      hp: 120, tempo: NORMAL, laden: 1.1, superKosten: 100,
-      angriff: { art: 'schuss', anzahl: 4, streuung: 0.5, tempo: 600, reichweite: 6.5, schaden: 11, radius: 8, look: 'glitzer' },
-      angriffText: 'Glitzer-Konfetti im Fächer – vier funkelnde Schüsse.',
+      id: 'leonie', name: 'Locken-Leon', titel: 'Tagsüber Leon, nachts die Queen', rolle: 'Kontrolle', farbe: '#ff7ac8', radius: 16,
+      sprite: function () { return Sprites.leonb(); },
+      dragSprite: function () { return Sprites.leonie(0, 'huefte', 'zwinker'); }, dragSkala: 1.75,
+      hp: 125, tempo: NORMAL, laden: 1.15, superKosten: 100,
+      angriff: { art: 'schuss', anzahl: 2, streuung: 0.2, tempo: 560, reichweite: 6.5, schaden: 13, radius: 8, look: 'locke' },
+      dragAngriff: { art: 'schuss', anzahl: 4, streuung: 0.5, tempo: 620, reichweite: 7, schaden: 14, radius: 9, look: 'glitzer' },
+      angriffText: 'Als Leon: zwei Locken-Bälle. Als Leonie: vier Glitzer-Sterne im Fächer.',
       superArt: 'haarflip', superReichweite: 0,
-      superText: 'Haar-Flip – wirft die Locken herum: alle in der Nähe werden weggeschleudert und kurz betäubt. SLAY!'
+      superText: 'Showtime! – verwandelt sich 8 Sekunden lang in Leonie Lockenpracht: Haar-Flip schleudert alle weg, dann stärker, schneller und mit Glitzer-Konfetti.'
     },
     {
       id: 'saro', name: 'Saro', titel: 'Goldgräber', rolle: 'Nahkampf', farbe: '#ffd23f',

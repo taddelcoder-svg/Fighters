@@ -381,6 +381,7 @@
       if (von && von.ki && !rangspiel && (ziel.spieler || ziel.mensch)) menge *= ks.schaden;   // Bots treffen Menschen schwächer
       if (von && von.dmgF) menge *= von.dmgF;
       if (von && von.ultra > 0) menge *= 1.2;
+      if (von && von.drag > 0) menge *= 1.2;
       if (ziel.ultra > 0) menge *= 0.75;
       if (von && von.gross > 0) menge *= 1.6;
       if (mod === 'glas' && von && !von.npc) menge *= 1.5;
@@ -461,7 +462,7 @@
       if (k.tot || k.betaeubt > 0 || k.verliebt > 0 || k.dash) return false;
       if (ball && ball.traeger === k) return ballSchiessen(k, w, dist);
       if (k.munition < 1) return false;
-      var a = k.def.angriff;
+      var a = k.drag > 0 && k.def.dragAngriff ? k.def.dragAngriff : k.def.angriff;
       k.munition -= 1; k.blick = w; k.zuletztAktiv = zeit; k.angriffT = 0.15;
       if (k.unsichtbar > 0) k.unsichtbar = 0;
       if (a.art === 'schuss') {
@@ -487,7 +488,7 @@
       return true;
     }
     function schiessen(k, w, ox, oy) {
-      var a = k.def.angriff;
+      var a = k.drag > 0 && k.def.dragAngriff ? k.def.dragAngriff : k.def.angriff;
       projektile.push({ x: k.x + (ox || 0) + Math.cos(w) * 14, y: k.y - SH + (oy || 0) + Math.sin(w) * 14, vx: Math.cos(w) * a.tempo, vy: Math.sin(w) * a.tempo,
         weg: 0, max: a.reichweite * T, schaden: a.schaden, r: a.radius, owner: k, team: k.team, look: a.look,
         durch: !!a.durch, getroffen: [], abprall: a.abprall || 0, bremst: a.bremst || 0, w: w });
@@ -600,6 +601,7 @@
           break;
         case 'haarflip':
           flaechenSchaden(k, k.x, k.y, 3 * T, 32, { stoss: 440, betaeubt: 0.8 });
+          k.drag = 8; k.munition = 3; k.spawnT = 0.35;
           fx({ art: 'ring', x: k.x, y: k.y, r: 3 * T, t: 0, d: 0.5, farbe: '#ff7ac8' });
           for (var kf = 0; kf < 16; kf++) fx({ art: 'splitter', x: k.x, y: k.y - 30, vx: rnd(-260, 260), vy: rnd(-320, 40), t: 0, d: 0.9, farbe: ['#ff7ac8', '#ffd23f', '#7ae8ff', '#fff'][kf % 4] });
           zahl({ x: k.x, y: k.y - 80, t: -0.3, text: 'SLAY!', farbe: '#ff7ac8' });
@@ -1302,7 +1304,7 @@
         k: kaempfer.map(function (k) {
           return [r1(k.x), r1(k.y), Math.max(0, Math.ceil(k.hp)), k.maxHp, r2(k.blick), k.munition, r2(k.ladeT), Math.round(k.superLadung), k.sterne, k.energie,
             k.tot ? 1 : 0, r2(k.respawn), k.kos, r2(k.gross), r2(k.schild), r2(k.unsichtbar), r2(k.betaeubt), k.bewegt ? 1 : 0,
-            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld, Math.round(k.statSchaden), k.weg ? 1 : 0, k.statTore, k.sprung ? r2(Math.min(1, k.sprung.t / k.sprung.T)) : 0, k.maxHp];
+            k.dash ? (k.dash.look === 'boot' ? 1 : 2) : 0, Math.min(99, Math.round((zeit - k.zuletztAktiv) * 10)), k.platz, k.tricks, r2(k.trickT), r2(k.verliebt), Math.round(k.ultraLadung), r2(k.ultra), k.kopfgeld, Math.round(k.statSchaden), k.weg ? 1 : 0, k.statTore, k.sprung ? r2(Math.min(1, k.sprung.t / k.sprung.T)) : 0, k.maxHp, r2(k.drag || 0)];
         }),
         p: projektile.map(function (p) {
           return p.wurf ? [1, r1(p.sx), r1(p.sy), r1(p.tx), r1(p.ty), r2(p.t), p.T, r1(p.flaeche), p.look]
@@ -1331,7 +1333,7 @@
         k.munition = a[5]; k.ladeT = a[6]; k.superLadung = a[7]; k.sterne = a[8]; k.energie = a[9]; k.tot = !!a[10]; k.respawn = a[11]; k.kos = a[12];
         k.gross = a[13]; k.schild = a[14]; k.unsichtbar = a[15]; k.betaeubt = a[16]; k.bewegt = !!a[17];
         k.dash = a[18] ? { look: a[18] === 1 ? 'boot' : 'sprint' } : null; k.zuletztAktiv = zeit - a[19] / 10; k.platz = a[20];
-        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26]; k.statSchaden = a[27]; k.weg = !!a[28]; k.statTore = a[29]; k.sprungF = a[30] || 0; if (a[31]) k.maxHp = a[31];
+        k.tricks = a[21]; k.trickT = a[22]; k.verliebt = a[23]; k.ultraLadung = a[24]; k.ultra = a[25]; k.kopfgeld = a[26]; k.statSchaden = a[27]; k.weg = !!a[28]; k.statTore = a[29]; k.sprungF = a[30] || 0; if (a[31]) k.maxHp = a[31]; k.drag = a[32] || 0;
       });
       projektile = d.p.map(function (a) {
         return a[0] ? { wurf: true, sx: a[1], sy: a[2], tx: a[3], ty: a[4], t: a[5], T: a[6], flaeche: a[7], look: a[8] }
@@ -1422,7 +1424,7 @@
           return;
         }
         if (k.emote) { k.emote.t -= dt; if (k.emote.t <= 0) k.emote = null; }
-        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra', 'angriffT', 'trefferT', 'spawnT', 'sprungT', 'teleT'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
+        ['betaeubt', 'gebremst', 'schild', 'unsichtbar', 'gross', 'turbo', 'trickT', 'verliebt', 'ultra', 'angriffT', 'trefferT', 'spawnT', 'sprungT', 'teleT', 'drag'].forEach(function (f) { if (k[f] > 0) k[f] = Math.max(0, k[f] - dt); });
         // Munition
         var lt = k.def.laden * k.ladeF * (k.schild > 0 && k.def.superArt === 'lernnie' ? 0.5 : 1);
         if (k.munition < 3) { k.ladeT += dt; if (k.ladeT >= lt) { k.ladeT = 0; k.munition++; } } else k.ladeT = 0;
@@ -1465,7 +1467,7 @@
             var m = kiSchritt(k, dt); mx = m.mx; my = m.my;
             if (mx || my) { if (!k.ki.ziel) k.blick = Math.atan2(my, mx); else k.blick = Math.atan2(k.ki.ziel.y - k.y, k.ki.ziel.x - k.x); }
           }
-          var tempo = k.def.tempo * k.tempoF * (mod === 'turbo' ? 1.15 : 1) * (k.ultra > 0 ? 1.2 : 1) * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
+          var tempo = k.def.tempo * k.tempoF * (k.drag > 0 ? 1.15 : 1) * (mod === 'turbo' ? 1.15 : 1) * (k.ultra > 0 ? 1.2 : 1) * (ball && ball.traeger === k ? 0.9 : 1) * (k.gebremst > 0 ? 0.55 : 1) * (k.turbo > 0 ? 1.3 : 1) * (k.gross > 0 ? 1.1 : 1);
           if (fPx(k.x, k.y) === 2) tempo *= 0.95;
           bewegen(k, mx * tempo * dt, my * tempo * dt);
         }
@@ -1640,8 +1642,9 @@
       if (!sicht && !eigen) return;
       var transparent = (k.unsichtbar > 0 || (inHecke(k) && eigen)) ? 0.45 : 1;
       var def = k.def, img = (k.bewegt && def.laufSprite) ? def.laufSprite(k.lauf) : def.sprite(k.superLadung >= def.superKosten ? 'super' : 'normal');
+      if (k.drag > 0 && def.dragSprite) img = def.dragSprite();
       if (k.skin) img = BS.umfaerben(img, k.skin);
-      var s = (def.skala || 2) * (k.gross > 0 ? 1.6 : 1) * (k.groesse || 1);
+      var s = (k.drag > 0 && def.dragSkala ? def.dragSkala : def.skala || 2) * (k.gross > 0 ? 1.6 : 1) * (k.groesse || 1);
       var bw = img.width * s, bh = img.height * s, bob = k.bewegt ? Math.abs(Math.sin(k.lauf * 12)) * 3 : 0;
       ctx.globalAlpha = transparent;
       // Schatten + Teamring
@@ -1741,6 +1744,8 @@
         case 'note': ctx.rotate(-(p.w || 0)); ctx.fillStyle = '#c81e2a'; ctx.beginPath(); ctx.ellipse(-2, 4, 6, 4.5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(3, -10, 3, 14); ctx.fillRect(3, -10, 8, 3); break;
         case 'herz': ctx.restore(); zeichneHerz(x2, y2 - 3, 8); return;
         case 'schraube': ctx.fillStyle = '#c8ccd6'; ctx.fillRect(-8, -3, 16, 6); ctx.fillStyle = '#8a8e98'; ctx.fillRect(4, -6, 5, 12); break;
+        case 'locke': ctx.rotate(zeit * 10); ctx.strokeStyle = '#8a6440'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 1.6); ctx.stroke();
+          ctx.fillStyle = '#b08a5a'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill(); break;
         case 'glitzer': ctx.rotate(zeit * 15); ctx.fillStyle = ['#ff7ac8', '#ffd23f', '#7ae8ff'][Math.floor(p.x) % 3];
           ctx.beginPath(); for (var gi2 = 0; gi2 < 8; gi2++) { var gw = gi2 * Math.PI / 4, gr = gi2 % 2 ? 4 : 9; ctx.lineTo(Math.cos(gw) * gr, Math.sin(gw) * gr); } ctx.closePath(); ctx.fill(); break;
         case 'zunge': ctx.restore(); ctx.strokeStyle = '#f08a9a'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(p.owner.x, p.owner.y - 24); ctx.lineTo(x2, y2); ctx.stroke();

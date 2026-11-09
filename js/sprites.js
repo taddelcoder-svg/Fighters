@@ -475,6 +475,17 @@
     scharf: { 7: '.FFFFFFFFFFFFFF.', 8: 'FFFWEFFFFFFEWFFF', 9: 'FFFFFFFssFFFFFFF', 10: '.FFFFFFssFFFFFF.', 11: '.FFFFOOOOOOFFFF.', 12: '..FFFFOOOOFFFF..' },
     aua: { 8: 'sSSEESSSSSSEESSs', 11: '.SSSSOOOOOOSSSS.', 12: '..SSSSFFFFSSSS..', 13: '...ssSFFFFSss...', 14: '......FFFF......' }
   };
+  // Leon (der zweite Leon, Locken-Leon): vorher = lockiger Schopf mit Fade, Navy-Hoodie, graue Jogginghose
+  var LEONB_PAL = {
+    H: '#8a6440', h: '#b08a5a', F: '#a88a72', S: '#f0c8ae', s: '#d6a68a', E: '#3a2a1a', W: '#ffffff', M: '#b0665c',
+    N: '#1c2440', n: '#2c3658', G: '#a8a8a8', g: '#8a8a8a', K: '#f2f2f2', k: '#9a9a9a'
+  };
+  var LEONB = [
+    '...hHhHHhHhHh...', '..hHHhHHHhHHHh..', '..HhHHhHHHhHHH..', '..FHHHHHHhHHHF..', '..FSHHSHHSHHSF..', '..FSSSSSSSSSSF..', '..SSHHSSSSHHSS..',
+    '.sSWESSSSSSEWSs.', '.sSSSSSssSSSSSs.', '..SSSSSssSSSSS..', '..SSSSMMMMSSSS..', '...SSSSSSSSSS...', '....ssSSSSss....', '......ssss......',
+    '..NNNNNssNNNNN..', '.NNNNNNNNNNNNNN.', 'NNNnNNNNNNNNnNNN', 'NNNnNNNNNNNNnNNN', 'NNNNNNNNNNNNNNNN', 'SNNNNNNNNNNNNNNS', 'S.NNNNNNNNNNNN.S',
+    '..GGGGGGGGGGGG..', '..GGGGG..GGGGG..', '..GGgGG..GGgGG..', '..GGGG....GGGG..', '.KKKKK....KKKKK.', '.KkKKK....KKkKK.', '................'
+  ];
   // Leonie Lockenpracht (Drag-Look): riesige Lockenperücke, Wimpern, rote Lippen, Rouge, Glitzerkleid, Ohrringe, High Heels (20 x 32)
   var LEONIE = [
     '......hHHhHHhH......', '....hHHHHHHHHHHh....', '...HHHhHHHHHHhHHH...', '..HHHHHHHHHHHHHHHH..', '..HHhHHHHHHHHHHhHH..', '.HHHHHSHHSSHHSHHHHH.',
@@ -571,6 +582,7 @@
       var pal = {}, k; for (k in LEONIE_BASIS) pal[k] = LEONIE_BASIS[k]; for (k in LEONIE_OUTFITS[outfit]) pal[k] = LEONIE_OUTFITS[outfit][k];
       return Pixel.sprite('leonie-' + outfit + '-' + pose + '-' + gesicht, leonieZeilen(pose, gesicht), pal);
     },
+    leonb: function () { return Pixel.sprite('leonb', LEONB, LEONB_PAL); },
     robo: function () { return Pixel.sprite('robo', ROBO, ROBO_PAL); },
     klecks: function () { return Pixel.sprite('klecks', KLECKS, KLECKS_PAL); },
     damon: function () { return Pixel.sprite('damon', DAMON, DAMON_PAL); },
