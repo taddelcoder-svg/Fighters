@@ -39,7 +39,8 @@ Wer die Verbindung verliert oder aufgibt, wird zum Bot; verlässt der Host, ist 
 Startbildschirm mit Kämpfer auf der Bühne, Profil mit Rang, Münzen, Schnellknöpfen und SPIELEN-Knopf; Unterbildschirme für Kämpfer, Shop,
 Aufgaben, Pokal-Weg, Modus-Auswahl (Kartenvorschau, Modifikator des Tages) und Freunde.
 Jede Runde beginnt mit einem VS-Intro, zeigt einen Kill-Feed, eine Punktetabelle (Tab / 📋) und am Ende den besten Spieler (MVP).
-Modifikatoren: Super-Turbo, Heilpilze, Meteoritenschauer, Energydrink.
+Modifikatoren: Super-Turbo, Heilpilze, Meteoritenschauer, Energydrink, Vampir-Biss (Treffer heilen), Glaskanone (60 % Leben, +50 % Schaden), Riesenmodus (größer, +40 % Leben), Pausenbrot-Nachschub (Munition lädt schneller).
+Nach der Runde gibt es neben dem MVP **Auszeichnungen** (K.o.-Jäger, Schadens-König, Torjäger, Super-Meister, Krankenzimmer-Stammgast). In der Online-Lobby gibt es einen **Schnell-Chat** mit festen Sprüchen (nur die Nummer wird verschickt, kein freier Text).
 
 ## Karten-Extras
 

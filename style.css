@@ -505,3 +505,22 @@ button { font: inherit; color: inherit; }
 .lobbyplatz small { font-size: 12px; opacity: .6; }
 .lobbykasten .hinweis { opacity: .75; }
 .lobbyplatz .rangabzeichen.klein { min-width: 26px; height: 24px; font-size: 12px; }
+
+/* ---------- Auszeichnungen im Ergebnis ---------- */
+.auszeichnungen { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 8px 0; }
+.azchip { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 14px; border: 3px solid var(--rand); background: rgba(255, 255, 255, .14); }
+.azchip.ich { outline: 2px solid var(--gruen); }
+.azicon { font-size: 26px; line-height: 1; }
+.aztext { display: flex; flex-direction: column; text-align: left; }
+.aztext b { font-family: var(--dick); font-weight: 400; font-size: 15px; text-shadow: 0 2px 0 var(--rand); }
+.aztext small { font-size: 13px; opacity: .9; }
+
+/* ---------- Schnell-Chat in der Lobby ---------- */
+.chat { margin: 8px 0; }
+.chatliste { max-height: 110px; overflow-y: auto; padding: 6px 10px; border-radius: 12px; background: rgba(0, 0, 0, .25); text-align: left; font-size: 15px; }
+.chatzeile { padding: 1px 0; }
+.chatzeile b { font-family: var(--dick); font-weight: 400; margin-right: 6px; }
+.chatzeile.ich b { color: var(--gruen); }
+.chatknoepfe { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chatknoepfe button { font: inherit; font-size: 14px; padding: 6px 10px; min-height: 34px; border-radius: 999px; border: 2px solid var(--rand); background: rgba(255, 255, 255, .85); color: #222; cursor: pointer; }
+.chatknoepfe button:active { transform: translateY(1px); }

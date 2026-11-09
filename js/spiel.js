@@ -155,17 +155,19 @@
       var quellen = [stufe >= BS.TALENT_AB ? ((def.talente && def.talente[talentWahl].mod) || def.talent || {}) : {}];
       if (stufe >= BS.AUSRUESTUNG_AB) (mehr.ausruestung || []).slice(0, 2).forEach(function (id) { var t = BS.teil(id); if (t) quellen.push(t.mod); });
       quellen.forEach(function (q) { for (var key in q) tal[key] = key === 'biss' || key === 'regenPause' ? q[key] : (tal[key] || 1) * q[key]; });
-      var hp0 = Math.round(def.hp * f * (tal.hp || 1));
+      var modHp = def.npc ? 1 : mod === 'glas' ? 0.6 : mod === 'riesen' ? 1.4 : 1;
+      var hp0 = Math.round(def.hp * f * (tal.hp || 1) * modHp);
+      var riese = mod === 'riesen' && !def.npc;
       var k = {
-        def: def, team: tm, spieler: istSpieler, x: 0, y: 0, r: def.radius || 16,
-        stufe: stufe, dmgF: f * (tal.schaden || 1), tempoF: tal.tempo || 1, ladeF: tal.laden || 1, superF: tal.superF || 1,
+        def: def, team: tm, spieler: istSpieler, x: 0, y: 0, r: riese ? Math.min(19, (def.radius || 16) * 1.2) : (def.radius || 16), groesse: riese ? 1.25 : 1,
+        stufe: stufe, dmgF: f * (tal.schaden || 1), tempoF: tal.tempo || 1, ladeF: (tal.laden || 1) * (mod === 'nachschub' && !def.npc ? 0.6 : 1), superF: tal.superF || 1,
         regenPause: REGEN_PAUSE * (tal.regenPause || 1), regenTempo: tal.regenTempo || 1, biss: tal.biss || 0,
         tricks: stufe >= BS.TRICK_AB && !def.npc ? 3 : 0, trickT: 0, verliebt: 0, verliebtZu: null,
         trickArt: def.tricks ? def.tricks[trickWahl].art : def.trick, trickName: def.tricks ? def.tricks[trickWahl].name : def.trickName,
         trickWahl: trickWahl, talentWahl: talentWahl,
         skin: BS.skin(def.id, mehr.skin), ausruestung: (mehr.ausruestung || []).slice(0, 2),
         ultraOk: stufe >= BS.ULTRA_AB, ultraLadung: 0, ultra: 0, emote: null, kopfgeld: 2,
-        statSchaden: 0, statSupers: 0, statTore: 0,
+        statSchaden: 0, statSupers: 0, statTore: 0, statTode: 0,
         hp: hp0, maxHp: hp0, munition: 3, ladeT: 0, superLadung: 0, superBereit: false,
         blick: tm === 0 ? -Math.PI / 2 : Math.PI / 2, lauf: 0, bewegt: false,
         betaeubt: 0, gebremst: 0, schild: 0, unsichtbar: 0, gross: 0, turbo: 0, doppelt: false,
@@ -381,9 +383,11 @@
       if (von && von.ultra > 0) menge *= 1.2;
       if (ziel.ultra > 0) menge *= 0.75;
       if (von && von.gross > 0) menge *= 1.6;
+      if (mod === 'glas' && von && !von.npc) menge *= 1.5;
       menge = Math.round(menge);
       ziel.hp -= menge; ziel.zuletztGetroffen = zeit; ziel.trefferT = 0.12;
       if (von) von.statSchaden += menge;
+      if (mod === 'vampir' && von && von !== ziel && von.team !== ziel.team && menge > 0) heilen(von, menge * 0.25);
       if (von && von.team !== ziel.team) ultraLaden(von, menge);
       if (ziel.unsichtbar > 0) ziel.unsichtbar = 0;
       zahl({ x: ziel.x + rnd(-8, 8), y: ziel.y - 40, t: 0, text: String(menge), farbe: ziel === spieler ? '#ff6a6a' : '#fff' });
@@ -420,6 +424,7 @@
     function sterben(k, von) {
       if (k.npc !== 'monster') feedPlus(von, k);
       fx({ art: 'geist', ki: kaempfer.indexOf(k), x: k.x, y: k.y, t: 0, d: 0.9, links: Math.cos(k.blick) < 0 });
+      k.statTode++;
       k.tot = true; k.hp = 0; k.dash = null; k.stoss = null; k.salve = [];
       for (var i = 0; i < 14; i++) fx({ art: 'splitter', x: k.x, y: k.y - 14, vx: rnd(-200, 200), vy: rnd(-260, 80), t: 0, d: 0.7, farbe: k.def.farbe });
       sfx.tone(300, 0.3, 'sawtooth', 0.07, 80);
@@ -1630,7 +1635,7 @@
       var transparent = (k.unsichtbar > 0 || (inHecke(k) && eigen)) ? 0.45 : 1;
       var def = k.def, img = (k.bewegt && def.laufSprite) ? def.laufSprite(k.lauf) : def.sprite(k.superLadung >= def.superKosten ? 'super' : 'normal');
       if (k.skin) img = BS.umfaerben(img, k.skin);
-      var s = (def.skala || 2) * (k.gross > 0 ? 1.6 : 1);
+      var s = (def.skala || 2) * (k.gross > 0 ? 1.6 : 1) * (k.groesse || 1);
       var bw = img.width * s, bh = img.height * s, bob = k.bewegt ? Math.abs(Math.sin(k.lauf * 12)) * 3 : 0;
       ctx.globalAlpha = transparent;
       // Schatten + Teamring
@@ -2089,7 +2094,7 @@
       if (!kandidaten.length) kandidaten = spielende;
       var mvp = kandidaten.reduce(function (a, b) { return punkte(b) > punkte(a) ? b : a; });
       var tabelle = kaempfer.filter(function (k) { return k.npc !== 'monster'; }).map(function (k) {
-        return { n: k.name || k.def.name, kid: k.def.id, skin: k.skin ? k.skin.id : '', team: k.team, kos: k.kos, schaden: Math.round(k.statSchaden), tore: k.statTore, mvp: k === mvp, mensch: k.mensch || 0, weg: !!k.weg };
+        return { n: k.name || k.def.name, kid: k.def.id, skin: k.skin ? k.skin.id : '', team: k.team, kos: k.kos, schaden: Math.round(k.statSchaden), tore: k.statTore, supers: k.statSupers, tode: k.statTode, npc: k.npc ? 1 : 0, mvp: k === mvp, mensch: k.mensch || 0, weg: !!k.weg };
       });
       var fuerAlt = fuer;
       fuer = function (k) { var st = fuerAlt(k); st.tabelle = tabelle; st.ich = kaempfer.filter(function (o) { return o.npc !== 'monster'; }).indexOf(k); st.meinTeam = k.team; st.mvp = k === mvp; return st; };

@@ -87,6 +87,7 @@ const clients = new Set();
 const raeume = new Map();
 const MAX_SPIELER = 10;
 const KOOP = ['boss', 'wellen'];
+const CHAT_SPRUECHE = 10;   // so viele feste Sprüche gibt es in js/extras.js (BS.SPRUECHE)
 function maxFuer(modus) { return modus === 'grosskeile' ? 10 : modus === 'royale' || modus === 'duo' ? 8 : 6; }
 function wahlVon(v) { return v === 1 ? 1 : 0; }
 
@@ -194,6 +195,13 @@ function nachricht(c, o) {
       break;
     }
     case 'verlassen': verlassen(c); break;
+    case 'chat': {   // Schnell-Chat: nur die Nummer eines festen Spruchs, höchstens einer pro 0,7 Sekunden
+      const n = Math.round(+o.s), jetzt = Date.now();
+      if (!r || !(n >= 0 && n < CHAT_SPRUECHE) || jetzt - (c.chatZeit || 0) < 700) return;
+      c.chatZeit = jetzt;
+      r.spieler.forEach((x) => senden(x, { t: 'chat', id: c.id, von: c.name, s: n }));
+      break;
+    }
     case 'hallo': c.name = sauber(o.name, 16); c.angemeldet = true; break;
     case 'status': {
       const namen = Array.isArray(o.namen) ? o.namen.slice(0, 50).map((n) => sauber(n, 16).toLowerCase()) : [];
