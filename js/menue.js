@@ -289,6 +289,7 @@
       ul.appendChild(li);
     });
     box.appendChild(ul);
+    box.appendChild(chatBauen());
     var plaetze = m.gross ? 10 : m.team ? 6 : 8;
     box.appendChild(el('p', 'tipp', online.spieler.length + ' von ' + plaetze + ' Plätzen · ' + 'Freie Plätze füllen Bots.'));
     // Raumregeln (nur Host ändert sie)
@@ -378,7 +379,46 @@
     BS.starten({ kaempfer: wahl, modus: modus, netz: netz, emotes: konto.emotes, karte: o.karte,
       modifikator: rg.mod && rg.mod !== 'heute' ? rg.mod : '', zeitFaktor: rg.zeit || 1 }, zeigeErgebnis);
   }
+  // Schnell-Chat in der Raum-Lobby: nur feste Sprüche, verschickt wird nur die Nummer
+  var chatLog = [], chatListe = null, chatLetzter = 0;
+  function chatZeile(c) {
+    var z = el('div', 'chatzeile' + (c.id === Netz.ich ? ' ich' : ''));
+    z.appendChild(el('b', '', c.von)); z.appendChild(el('span', '', BS.SPRUECHE[c.s] || ''));
+    return z;
+  }
+  function chatBauen() {
+    var wrap = el('div', 'chat');
+    chatListe = el('div', 'chatliste');
+    chatListe.setAttribute('aria-live', 'polite');
+    if (!chatLog.length) chatListe.appendChild(el('p', 'tipp', 'Schnell-Chat: tippe einen Spruch an.'));
+    chatLog.forEach(function (c) { chatListe.appendChild(chatZeile(c)); });
+    wrap.appendChild(chatListe);
+    var knoepfe = el('div', 'chatknoepfe');
+    BS.SPRUECHE.forEach(function (t, i) {
+      var b = el('button', '', t); b.type = 'button';
+      b.addEventListener('click', function () {
+        if (Date.now() - chatLetzter < 800) return;
+        chatLetzter = Date.now();
+        Netz.senden({ t: 'chat', s: i });
+      });
+      knoepfe.appendChild(b);
+    });
+    wrap.appendChild(knoepfe);
+    chatListe.scrollTop = chatListe.scrollHeight;
+    return wrap;
+  }
+  function chatEmpfangen(o) {
+    if (typeof o.s !== 'number' || !BS.SPRUECHE[o.s]) return;
+    var c = { id: o.id, von: String(o.von || 'Spieler').slice(0, 16), s: o.s };
+    chatLog.push(c); if (chatLog.length > 30) chatLog.shift();
+    if (chatListe && chatListe.isConnected) {
+      var tipp = chatListe.querySelector('.tipp'); if (tipp) tipp.remove();
+      chatListe.appendChild(chatZeile(c)); chatListe.scrollTop = chatListe.scrollHeight;
+    }
+  }
+
   Netz.bei(function (o) {
+    if (o.t === 'chat') { chatEmpfangen(o); return; }
     if (o.t === 'freundstatus') {
       freundStatus = {}; o.liste.forEach(function (f) { freundStatus[f.name.toLowerCase()] = f; });
       if (!menue.hidden && screen === 'profil') aufbauen();
@@ -390,6 +430,7 @@
     if (o.t === 'gefunden' || o.t === 'suche_aus') { suchEl.hidden = true; return; }
     if (o.t === 'raum_zu') { online = null; return; }
     if (o.t === 'lobby') {
+      if (!online || online.code !== o.code) chatLog = [];
       online = o;
       if (!istHost()) modus = o.modus;
       if (!imSpiel && ergebnis.hidden) aufbauen();
@@ -958,6 +999,18 @@
         mt.appendChild(el('small', '', mvp.kos + ' K.o.s · ' + mvp.schaden + ' Schaden' + (mvp.tore ? ' · ' + mvp.tore + ' Tore' : '')));
         mb.appendChild(mt); box.appendChild(mb);
       }
+      var az = auszeichnungen(e.tabelle);
+      if (az.length) {
+        var azBox = el('div', 'auszeichnungen');
+        az.forEach(function (a) {
+          var ch = el('div', 'azchip' + (a.i === e.ich ? ' ich' : ''));
+          ch.appendChild(el('span', 'azicon', a.icon));
+          var tx = el('span', 'aztext'); tx.appendChild(el('b', '', a.titel));
+          tx.appendChild(el('small', '', (a.i === e.ich ? 'Du' : e.tabelle[a.i].n) + ' · ' + a.text));
+          ch.appendChild(tx); azBox.appendChild(ch);
+        });
+        box.appendChild(azBox);
+      }
       var tab = el('div', 'endtabelle');
       var teams = {}; e.tabelle.forEach(function (z, i) { z.i = i; (teams[z.team] = teams[z.team] || []).push(z); });
       Object.keys(teams).sort(function (a, b) { return (+a === e.meinTeam ? -1 : 0) - (+b === e.meinTeam ? -1 : 0); }).forEach(function (t) {
@@ -983,6 +1036,29 @@
     ergebnis.appendChild(box);
     ergebnis.hidden = false;
     (nochmal.hidden ? zur : nochmal).focus();
+  }
+
+  // Auszeichnungen für die Runde: jede geht an einen anderen Spieler, nur echte Leistungen zählen
+  function auszeichnungen(tabelle) {
+    var liste = [
+      { id: 'kos', icon: '🎯', titel: 'K.o.-Jäger', min: 2, wert: function (z) { return z.kos; }, text: function (w) { return w + ' K.o.s'; } },
+      { id: 'schaden', icon: '💥', titel: 'Schadens-König', min: 300, wert: function (z) { return z.schaden; }, text: function (w) { return w + ' Schaden'; } },
+      { id: 'tore', icon: '⚽', titel: 'Torjäger', min: 1, wert: function (z) { return z.tore || 0; }, text: function (w) { return w + ' Tore'; } },
+      { id: 'supers', icon: '⚡', titel: 'Super-Meister', min: 2, wert: function (z) { return z.supers || 0; }, text: function (w) { return w + 'x Super'; } },
+      { id: 'tode', icon: '🩹', titel: 'Krankenzimmer-Stammgast', min: 3, wert: function (z) { return z.tode || 0; }, text: function (w) { return w + 'x ausgeschieden'; } }
+    ];
+    var echte = tabelle.map(function (z, i) { return { z: z, i: i }; }).filter(function (x) { return !x.z.npc && x.z.n !== 'Puppe'; });
+    if (echte.length < 2) return [];
+    var vergeben = {}, ergebnis = [];
+    liste.forEach(function (a) {
+      var beste = null;
+      echte.forEach(function (x) {
+        if (vergeben[x.i] || a.wert(x.z) < a.min) return;
+        if (!beste || a.wert(x.z) > a.wert(beste.z)) beste = x;
+      });
+      if (beste) { vergeben[beste.i] = 1; ergebnis.push({ i: beste.i, icon: a.icon, titel: a.titel, text: a.text(a.wert(beste.z)) }); }
+    });
+    return ergebnis.slice(0, 4);
   }
 
   function tonText() { tonKnopf.textContent = Pixel.isMuted() ? '🔇' : '🔊'; }

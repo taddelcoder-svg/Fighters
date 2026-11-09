@@ -165,7 +165,11 @@
     { id: 'superschnell', name: 'Super-Turbo', icon: '⚡', text: 'Supers laden doppelt so schnell.' },
     { id: 'heilpilze', name: 'Heilpilze', icon: '🍄', text: 'Überall wachsen Pilze, die 35 % Leben geben.' },
     { id: 'meteore', name: 'Meteoritenschauer', icon: '☄', text: 'Meteore schlagen ein – auf den roten Kreis achten!' },
-    { id: 'turbo', name: 'Energydrink', icon: '🥤', text: 'Alle laufen 15 % schneller.' }
+    { id: 'turbo', name: 'Energydrink', icon: '🥤', text: 'Alle laufen 15 % schneller.' },
+    { id: 'vampir', name: 'Vampir-Biss', icon: '🧛', text: 'Jeder Treffer auf einen Gegner heilt dich um 25 % des Schadens.' },
+    { id: 'glas', name: 'Glaskanone', icon: '💎', text: 'Alle haben nur 60 % Leben, teilen aber 50 % mehr aus.' },
+    { id: 'riesen', name: 'Riesenmodus', icon: '🦣', text: 'Alle sind größer und haben 40 % mehr Leben.' },
+    { id: 'nachschub', name: 'Pausenbrot-Nachschub', icon: '🥪', text: 'Die Munition lädt 40 % schneller nach.' }
   ];
   function modifikator(id) { for (var i = 0; i < MODIFIKATOREN.length; i++) if (MODIFIKATOREN[i].id === id) return MODIFIKATOREN[i]; return MODIFIKATOREN[0]; }
   function modifikatorHeute(modus, tag) {
@@ -174,6 +178,9 @@
     var r = zufall(((tag === undefined ? tagNummer() : tag) * 977 + h) % 4294967296)();
     return r < 0.4 ? 'keiner' : MODIFIKATOREN[1 + Math.floor((r - 0.4) / 0.6 * (MODIFIKATOREN.length - 1))].id;
   }
+  // Schnell-Sprüche für den Lobby-Chat: nur feste Sätze, es wird nur die Nummer verschickt
+  var SPRUECHE = ['Hi zusammen! 👋', 'Bereit! ✅', 'Warte kurz ⏳', 'Gleich nochmal? 🔁', 'GG! 🤝', 'Gut gespielt! 👏', 'Revanche! 😤', 'Ich such eine Karte aus 🗺', 'Lasst Bots auffüllen 🤖', 'Muss los – bis bald! 👋'];
+  BS.SPRUECHE = SPRUECHE;
   BS.MODIFIKATOREN = MODIFIKATOREN; BS.modifikator = modifikator; BS.modifikatorHeute = modifikatorHeute;
 
   // ---------- Schuljahr-Pass: alle 28 Tage eine neue Saison, 30 Stufen à 100 Pass-Punkte ----------
